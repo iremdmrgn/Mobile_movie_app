@@ -9,10 +9,11 @@ const client = new Client()
 
 const database = new Databases(client);
 
+// ✅ Arama yapılan film zaten varsa sayacını artır, yoksa yeni belge oluştur
 export const updateSearchCount = async (query: string, movie: Movie) => {
   try {
     const result = await database.listDocuments(DATABASE_ID, COLLECTION_ID, [
-      Query.equal("searchTerm", query),
+      Query.equal("movie_id", movie.id), // Burayı değiştirdik!
     ]);
 
     if (result.documents.length > 0) {
@@ -40,18 +41,24 @@ export const updateSearchCount = async (query: string, movie: Movie) => {
   }
 };
 
-export const getTrendingMovies = async (): Promise<
-  TrendingMovie[] | undefined
-> => {
+// ✅ En çok aranan filmleri getir (tekrar eden movie_id'leri filtrele)
+export const getTrendingMovies = async (): Promise<TrendingMovie[] | undefined> => {
   try {
     const result = await database.listDocuments(DATABASE_ID, COLLECTION_ID, [
-      Query.limit(5),
+      Query.limit(20), // Daha fazla veri alalım ki filtreleme sonrası 5 kalsın
       Query.orderDesc("count"),
     ]);
 
-    return result.documents as unknown as TrendingMovie[];
+    const uniqueMovies = new Map<string, TrendingMovie>();
+    for (const doc of result.documents as TrendingMovie[]) {
+      if (!uniqueMovies.has(doc.movie_id)) {
+        uniqueMovies.set(doc.movie_id, doc);
+      }
+    }
+
+    return Array.from(uniqueMovies.values()).slice(0, 5);
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching trending movies:", error);
     return undefined;
   }
 };
