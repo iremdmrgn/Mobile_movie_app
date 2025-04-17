@@ -11,7 +11,8 @@ const MovieCard = ({
   release_date,
 }: Movie) => {
   return (
-    <Link href={`/movie/${id}`} asChild>
+    <Link href={`/movies/${id}`} asChild>
+      {/* ✅ asChild ile sadece tek bir React element (TouchableOpacity) çocuk olarak verilmeli */}
       <TouchableOpacity className="w-[30%]">
         <Image
           source={{
