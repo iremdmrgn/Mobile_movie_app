@@ -73,7 +73,7 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="saved"
+        name="save"
         options={{
           title: "Save",
           headerShown: false,
