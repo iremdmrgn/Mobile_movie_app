@@ -1,4 +1,4 @@
-// Save.tsx
+// Save.tsx (COLLECTION DELETE AND ADD FLOW)
 import { useState, useCallback } from "react";
 import {
   View,
@@ -10,30 +10,36 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getSavedMoviesByUser, saveMovie, isMovieAlreadySaved } from "@/services/savedMovies";
-import { createCollection } from "@/services/movieCollections";
+import { getSavedMoviesByUser, saveMovie } from "@/services/savedMovies";
+import {
+  createCollection,
+  deleteCollectionByTitle,
+} from "@/services/movieCollections";
 import { fetchMovies } from "@/services/api";
 import MovieCard from "@/components/MovieCard";
+import SearchBar from "@/components/SearchBar";
 import { icons } from "@/constants/icons";
 import { useFocusEffect } from "expo-router";
 
 const Save = () => {
   const [savedMovies, setSavedMovies] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
 
   const [selectMode, setSelectMode] = useState(false);
-  const [selectedCollectionTitle, setSelectedCollectionTitle] = useState<string | null>(null);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [selectedCollectionTitle, setSelectedCollectionTitle] = useState<string>("");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
   const [moviesToPick, setMoviesToPick] = useState<Movie[]>([]);
   const [selectedMovies, setSelectedMovies] = useState<number[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searching, setSearching] = useState(false);
 
   const fetchSaved = async () => {
     try {
@@ -53,73 +59,70 @@ const Save = () => {
     }, [])
   );
 
-  const toggleCategory = (category: string) => {
-    if (category === "Favoriler") return;
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [category]: !prev[category],
-    }));
-  };
-
   const handleCreateCollection = async () => {
     if (!newTitle.trim()) return;
     try {
       setCreating(true);
-      await createCollection(newTitle.trim());
+      const collectionId = await createCollection(newTitle.trim());
+      setSelectedCollectionId(collectionId);
       setSelectedCollectionTitle(newTitle.trim());
-      const result = await fetchMovies({ query: "" });
-      setMoviesToPick(result);
+      setShowCreateModal(false);
+      setNewTitle("");
       setSelectMode(true);
+      fetchSearchResults("");
     } catch (err) {
       console.error("Collection create error:", err);
     } finally {
       setCreating(false);
-      setShowCreateModal(false);
-      setNewTitle("");
     }
   };
 
-  const handleToggleSelect = (id: number) => {
+  const handleDeleteCollection = (category: string) => {
+    Alert.alert("Delete Collection", `Do you want to delete the ${category} collection?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteCollectionByTitle(category);
+            fetchSaved();
+          } catch (err) {
+            console.error("Delete error:", err);
+          }
+        },
+      },
+    ]);
+  };
+
+  const fetchSearchResults = async (query: string) => {
+    try {
+      setSearchLoading(true);
+      const data = await fetchMovies({ query });
+      setMoviesToPick(data);
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleToggleMovie = (movieId: number) => {
     setSelectedMovies((prev) =>
-      prev.includes(id) ? prev.filter((mid) => mid !== id) : [...prev, id]
+      prev.includes(movieId) ? prev.filter((id) => id !== movieId) : [...prev, movieId]
     );
   };
 
-  const handleCompleteSelection = async () => {
-    if (!selectedCollectionTitle) return;
-    try {
-      const selected = moviesToPick.filter((m) => selectedMovies.includes(m.id));
-      for (const movie of selected) {
-        const already = await isMovieAlreadySaved(movie.id);
-        if (!already) {
-          await saveMovie(movie, selectedCollectionTitle);
-        }
-      }
-      fetchSaved();
-      setSelectMode(false);
-      setSelectedMovies([]);
-      setSelectedCollectionTitle(null);
-    } catch (err) {
-      console.error("Complete selection error:", err);
+  const handleConfirmSelection = async () => {
+    const selected = moviesToPick.filter((movie) => selectedMovies.includes(movie.id));
+    for (const movie of selected) {
+      await saveMovie(movie, selectedCollectionTitle);
     }
-  };
-
-  const handleSearch = async (text: string) => {
-    setSearchQuery(text);
-    if (text.trim() === "") {
-      const result = await fetchMovies({ query: "" });
-      setMoviesToPick(result);
-      return;
-    }
-    try {
-      setSearching(true);
-      const result = await fetchMovies({ query: text });
-      setMoviesToPick(result);
-    } catch (err) {
-      console.error("Search error:", err);
-    } finally {
-      setSearching(false);
-    }
+    setSelectMode(false);
+    setSelectedCollectionId(null);
+    setSelectedCollectionTitle("");
+    setSelectedMovies([]);
+    fetchSaved();
   };
 
   const hasMovies = Object.keys(savedMovies).length > 0;
@@ -130,31 +133,26 @@ const Save = () => {
         onPress={() => setShowCreateModal(true)}
         className="bg-accent px-4 py-2 rounded-xl self-start mt-6"
       >
-        <Text className="text-white font-semibold">+ Yeni Koleksiyon Oluştur</Text>
+        <Text className="text-white font-semibold">+ Create New Collection</Text>
       </TouchableOpacity>
 
-      <Modal
-        visible={showCreateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCreateModal(false)}
-      >
+      <Modal visible={showCreateModal} transparent animationType="fade">
         <View className="flex-1 justify-center items-center bg-black/60 px-8">
           <View className="bg-white rounded-xl p-6 w-full">
-            <Text className="text-lg font-bold text-black mb-3">Koleksiyon Adı</Text>
+            <Text className="text-lg font-bold text-black mb-3">Collection Name</Text>
             <TextInput
               value={newTitle}
               onChangeText={setNewTitle}
-              placeholder="Hafta Sonu Filmleri"
+              placeholder="Weekend Movies"
               className="border border-gray-300 px-4 py-2 rounded-md text-black"
             />
             <View className="flex-row justify-end mt-4 gap-3">
               <TouchableOpacity onPress={() => setShowCreateModal(false)}>
-                <Text className="text-gray-600">İptal</Text>
+                <Text className="text-gray-600">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleCreateCollection} disabled={creating}>
                 <Text className="text-accent font-semibold">
-                  {creating ? "Ekleniyor..." : "Oluştur"}
+                  {creating ? "Creating..." : "Create"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -164,49 +162,48 @@ const Save = () => {
 
       <Modal visible={selectMode} animationType="slide">
         <SafeAreaView className="flex-1 bg-primary px-5">
-          <Text className="text-white font-bold text-xl mt-6 mb-4">Filmleri Seç</Text>
-          <TextInput
-            placeholder="Film ara..."
-            placeholderTextColor="#aaa"
+          <Text className="text-white font-bold text-xl mt-6 mb-4">Add Movies to Collection</Text>
+
+          <SearchBar
+            placeholder="Search movies..."
             value={searchQuery}
-            onChangeText={handleSearch}
-            className="bg-dark-200 text-white px-4 py-2 rounded-lg mb-4"
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              fetchSearchResults(text);
+            }}
           />
 
-          {searching ? (
-            <ActivityIndicator color="#fff" className="mt-10" />
+          {searchLoading ? (
+            <ActivityIndicator className="mt-4" />
           ) : (
-            <ScrollView>
-              <View className="flex-row flex-wrap gap-4">
-                {moviesToPick.map((movie) => {
-                  const isSelected = selectedMovies.includes(movie.id);
-                  return (
-                    <TouchableOpacity
-                      key={movie.id}
-                      onPress={() => handleToggleSelect(movie.id)}
-                      className={`w-[30%] border-2 rounded-lg overflow-hidden ${
-                        isSelected ? "border-accent" : "border-transparent"
-                      }`}
-                    >
-                      <Image
-                        source={{
-                          uri: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
-                        }}
-                        className="w-full h-48"
-                        resizeMode="cover"
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
+            <FlatList
+              data={moviesToPick}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={3}
+              columnWrapperStyle={{ justifyContent: "space-between", marginBottom: 10 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity onPress={() => handleToggleMovie(item.id)} className="w-[30%] relative">
+                  <Image
+                    source={{ uri: `https://image.tmdb.org/t/p/w500${item.poster_path}` }}
+                    className="w-full h-48 rounded-lg"
+                    resizeMode="cover"
+                    style={{ opacity: selectedMovies.includes(item.id) ? 0.5 : 1 }}
+                  />
+                  {selectedMovies.includes(item.id) && (
+                    <View className="absolute top-2 right-2 bg-white rounded-full p-1">
+                      <Text className="text-xs text-black font-bold">✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
           )}
 
           <TouchableOpacity
             className="bg-accent px-4 py-3 rounded-xl mt-5"
-            onPress={handleCompleteSelection}
+            onPress={handleConfirmSelection}
           >
-            <Text className="text-white text-center font-semibold">Tamamla</Text>
+            <Text className="text-white text-center font-semibold">Done</Text>
           </TouchableOpacity>
         </SafeAreaView>
       </Modal>
@@ -224,50 +221,34 @@ const Save = () => {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} className="pt-8">
-          {Object.entries(savedMovies).map(([category, movies]) => {
-            const isExpanded = category === "Favoriler" || (expandedCategories[category] ?? false);
-
-            return (
-              <View key={category} className="mb-8">
-                <TouchableOpacity
-                  onPress={() => toggleCategory(category)}
-                  className="flex-row justify-between items-center mb-4"
-                  disabled={category === "Favoriler"}
-                >
-                  <Text className="text-white font-bold text-lg">
-                    {category}
-                  </Text>
-                  {category !== "Favoriler" && (
-                    <Text className="text-accent font-bold text-xl">
-                      {isExpanded ? "−" : "+"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                {isExpanded && (
-                  <View className="flex-row flex-wrap gap-4">
-                    {movies.map((movie: any) => (
-                      <MovieCard
-                        key={movie.movie_id}
-                        id={movie.movie_id}
-                        title={movie.title}
-                        poster_path={
-                          movie.poster_url?.replace(
-                            "https://image.tmdb.org/t/p/w500",
-                            ""
-                          ) || ""
-                        }
-                        vote_average={movie.vote_average || 5}
-                        release_date={movie.release_date || "2024-01-01"}
-                        onUnsave={fetchSaved}
-                        onSave={fetchSaved}
-                      />
-                    ))}
-                  </View>
+          {Object.entries(savedMovies).map(([category, movies]) => (
+            <View key={category} className="mb-8">
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-white font-bold text-lg">{category}</Text>
+                {category !== "Favorites" && (
+                  <TouchableOpacity onPress={() => handleDeleteCollection(category)}>
+                    <Text className="text-red-500 text-sm">Delete</Text>
+                  </TouchableOpacity>
                 )}
               </View>
-            );
-          })}
+              <View className="flex-row flex-wrap gap-4">
+                {movies.map((movie: any) => (
+                  <MovieCard
+                    key={movie.movie_id}
+                    id={movie.movie_id}
+                    title={movie.title}
+                    poster_path={
+                      movie.poster_url?.replace("https://image.tmdb.org/t/p/w500", "") || ""
+                    }
+                    vote_average={movie.vote_average || 5}
+                    release_date={movie.release_date || "2024-01-01"}
+                    onUnsave={fetchSaved}
+                    onSave={fetchSaved}
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
         </ScrollView>
       )}
     </SafeAreaView>
