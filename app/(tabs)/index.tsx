@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,11 +7,11 @@ import {
   Image,
   FlatList,
 } from "react-native";
-import { useRouter } from "expo-router";
 
 import useFetch from "@/services/useFetch";
 import { fetchMovies } from "@/services/api";
-import { getTrendingMovies } from "@/services/appwrite";
+import { getTrendingMovies, updateSearchCount } from "@/services/appwrite";
+import { account } from "@/services/appwrite"; // ✅ Appwrite account
 
 import { icons } from "@/constants/icons";
 import { images } from "@/constants/images";
@@ -20,7 +21,29 @@ import MovieCard from "@/components/MovieCard";
 import TrendingCard from "@/components/TrendingCard";
 
 const Index = () => {
-  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Movie[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [ready, setReady] = useState(false); // ✅ Oturum hazır mı?
+
+  // ✅ Appwrite'a anonim login - sadece bir kere yapılır
+  useEffect(() => {
+    const ensureAnonymousSession = async () => {
+      try {
+        await account.get(); // Oturum varsa sorun yok
+        setReady(true);
+      } catch (err) {
+        try {
+          await account.createAnonymousSession(); // Yoksa oluştur
+          setReady(true);
+        } catch (error) {
+          console.error("Anonim oturum açılırken hata:", error);
+        }
+      }
+    };
+
+    ensureAnonymousSession();
+  }, []);
 
   const {
     data: trendingMovies,
@@ -33,6 +56,39 @@ const Index = () => {
     loading: moviesLoading,
     error: moviesError,
   } = useFetch(() => fetchMovies({ query: "" }));
+
+  useEffect(() => {
+    const timeout = setTimeout(async () => {
+      if (searchQuery.trim() !== "") {
+        try {
+          setSearchLoading(true);
+          const result = await fetchMovies({ query: searchQuery });
+          setSearchResults(result);
+          if (result.length > 0) {
+            await updateSearchCount(searchQuery, result[0]);
+          }
+        } catch (err) {
+          console.error("Search failed:", err);
+        } finally {
+          setSearchLoading(false);
+        }
+      } else {
+        setSearchResults(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  // ✅ Oturum hazır değilse loader göster
+  if (!ready) {
+    return (
+      <View className="flex-1 justify-center items-center bg-primary">
+        <ActivityIndicator size="large" color="#fff" />
+        <Text className="text-white mt-2">Oturum başlatılıyor...</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-primary">
@@ -49,23 +105,47 @@ const Index = () => {
       >
         <Image source={icons.logo} className="w-12 h-10 mt-20 mb-5 mx-auto" />
 
-        {moviesLoading || trendingLoading ? (
+        <SearchBar
+          placeholder="Search for a movie"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+
+        {searchLoading && (
           <ActivityIndicator
             size="large"
             color="#0000ff"
-            className="mt-10 self-center"
+            className="mt-5 self-center"
           />
-        ) : moviesError || trendingError ? (
-          <Text>Error: {moviesError?.message || trendingError?.message}</Text>
+        )}
+
+        {searchQuery.trim() && searchResults !== null ? (
+          <View className="mt-8">
+            <Text className="text-lg text-white font-bold mb-3">
+              Search Results for{" "}
+              <Text className="text-accent">{searchQuery}</Text>
+            </Text>
+
+            {searchResults.length === 0 ? (
+              <Text className="text-gray-400">No movies found.</Text>
+            ) : (
+              <FlatList
+                data={searchResults}
+                renderItem={({ item }) => <MovieCard {...item} />}
+                keyExtractor={(item) => item.id.toString()}
+                numColumns={3}
+                columnWrapperStyle={{
+                  justifyContent: "flex-start",
+                  gap: 20,
+                  paddingRight: 5,
+                  marginBottom: 10,
+                }}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
         ) : (
           <View className="flex-1 mt-5">
-            <SearchBar
-              onPress={() => {
-                router.push("/search");
-              }}
-              placeholder="Search for a movie"
-            />
-
             {trendingMovies && (
               <View className="mt-10">
                 <Text className="text-lg text-white font-bold mb-3">
@@ -88,26 +168,24 @@ const Index = () => {
               </View>
             )}
 
-            <>
-              <Text className="text-lg text-white font-bold mt-5 mb-3">
-                Latest Movies
-              </Text>
+            <Text className="text-lg text-white font-bold mt-5 mb-3">
+              Latest Movies
+            </Text>
 
-              <FlatList
-                data={movies}
-                renderItem={({ item }) => <MovieCard {...item} />}
-                keyExtractor={(item) => item.id.toString()}
-                numColumns={3}
-                columnWrapperStyle={{
-                  justifyContent: "flex-start",
-                  gap: 20,
-                  paddingRight: 5,
-                  marginBottom: 10,
-                }}
-                className="mt-2 pb-32"
-                scrollEnabled={false}
-              />
-            </>
+            <FlatList
+              data={movies}
+              renderItem={({ item }) => <MovieCard {...item} />}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={3}
+              columnWrapperStyle={{
+                justifyContent: "flex-start",
+                gap: 20,
+                paddingRight: 5,
+                marginBottom: 10,
+              }}
+              className="mt-2 pb-32"
+              scrollEnabled={false}
+            />
           </View>
         )}
       </ScrollView>

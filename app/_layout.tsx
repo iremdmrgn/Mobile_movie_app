@@ -15,13 +15,20 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="movies/[id]" // ✅ burada düzeltme yapıldı
+          name="movies/[id]"
           options={{
             headerShown: false,
           }}
         />
+        {/* ❌ Artık bu yok:
+        <Stack.Screen
+          name="search"
+          options={{
+            headerShown: false,
+          }}
+        />
+        */}
       </Stack>
-      
     </>
   );
 }

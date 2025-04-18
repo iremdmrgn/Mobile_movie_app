@@ -8,10 +8,16 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
 
 import { icons } from "@/constants/icons";
 import useFetch from "@/services/useFetch";
 import { fetchMovieDetails } from "@/services/api";
+import {
+  saveMovie,
+  unsaveMovie,
+  isMovieAlreadySaved,
+} from "@/services/savedMovies";
 
 interface MovieInfoProps {
   label: string;
@@ -30,10 +36,39 @@ const MovieInfo = ({ label, value }: MovieInfoProps) => (
 const Details = () => {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const [isSaved, setIsSaved] = useState(false);
 
   const { data: movie, loading } = useFetch(() =>
     fetchMovieDetails(id as string)
   );
+
+  useEffect(() => {
+    const checkSaved = async () => {
+      const saved = await isMovieAlreadySaved(Number(id));
+      setIsSaved(saved);
+    };
+
+    if (id) checkSaved();
+  }, [id]);
+
+  const handleSaveToggle = async () => {
+    try {
+      if (!movie?.id || !movie?.title || !movie?.poster_path) return;
+
+      if (isSaved) {
+        await unsaveMovie(movie.id);
+        setIsSaved(false);
+      } else {
+        await saveMovie(
+          { id: movie.id, title: movie.title, poster_path: movie.poster_path },
+          "Favoriler"
+        );
+        setIsSaved(true);
+      }
+    } catch (err) {
+      console.error("Save toggle error:", err);
+    }
+  };
 
   if (loading)
     return (
@@ -44,7 +79,7 @@ const Details = () => {
 
   return (
     <View className="bg-primary flex-1 relative">
-      {/* Sol üstte geri tuşu */}
+      {/* Geri butonu */}
       <TouchableOpacity
         onPress={router.back}
         className="absolute top-14 left-5 z-50 bg-dark-100/60 p-2 rounded-full"
@@ -57,7 +92,7 @@ const Details = () => {
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
-        <View>
+        <View className="relative">
           <Image
             source={{
               uri: `https://image.tmdb.org/t/p/w500${movie?.poster_path}`,
@@ -66,6 +101,19 @@ const Details = () => {
             resizeMode="stretch"
           />
 
+          {/* Dinamik save ikonu */}
+          <TouchableOpacity
+            onPress={handleSaveToggle}
+            className="absolute top-10 right-5 z-10 bg-white/90 p-3 rounded-full"
+          >
+            <Image
+              source={isSaved ? icons.saveFilled : icons.save}
+              className="w-6 h-6"
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
+          {/* Play ikonu */}
           <TouchableOpacity className="absolute bottom-5 right-5 rounded-full size-14 bg-white flex items-center justify-center">
             <Image
               source={icons.play}
@@ -86,11 +134,9 @@ const Details = () => {
 
           <View className="flex-row items-center bg-dark-100 px-2 py-1 rounded-md gap-x-1 mt-2">
             <Image source={icons.star} className="size-4" />
-
             <Text className="text-white font-bold text-sm">
               {Math.round(movie?.vote_average ?? 0)}/10
             </Text>
-
             <Text className="text-light-200 text-sm">
               ({movie?.vote_count} votes)
             </Text>
@@ -118,8 +164,9 @@ const Details = () => {
           <MovieInfo
             label="Production Companies"
             value={
-              movie?.production_companies?.map((c) => c.name).join(" • ") ||
-              "N/A"
+              movie?.production_companies
+                ?.map((c) => c.name)
+                .join(" • ") || "N/A"
             }
           />
         </View>

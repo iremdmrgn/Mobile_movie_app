@@ -61,16 +61,7 @@ export default function TabsLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: "Search",
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon={icons.search} title="Search" />
-          ),
-        }}
-      />
+      {/* ❌ Search sekmesi kaldırıldı */}
 
       <Tabs.Screen
         name="save"

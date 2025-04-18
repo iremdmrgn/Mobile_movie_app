@@ -1,19 +1,20 @@
-import { Client, Databases, ID, Query } from "react-native-appwrite";
+import { Client, Databases, Account, ID, Query } from "react-native-appwrite";
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
 const COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ID!;
 
-const client = new Client()
+export const client = new Client()
   .setEndpoint("https://cloud.appwrite.io/v1")
   .setProject(process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID!);
 
-const database = new Databases(client);
+export const database = new Databases(client);
+export const account = new Account(client); // ✅ EKLENDİ
 
-// ✅ Arama yapılan film zaten varsa sayacını artır, yoksa yeni belge oluştur
+// Arama sayacı fonksiyonu
 export const updateSearchCount = async (query: string, movie: Movie) => {
   try {
     const result = await database.listDocuments(DATABASE_ID, COLLECTION_ID, [
-      Query.equal("movie_id", movie.id), // Burayı değiştirdik!
+      Query.equal("movie_id", movie.id),
     ]);
 
     if (result.documents.length > 0) {
@@ -41,11 +42,13 @@ export const updateSearchCount = async (query: string, movie: Movie) => {
   }
 };
 
-// ✅ En çok aranan filmleri getir (tekrar eden movie_id'leri filtrele)
-export const getTrendingMovies = async (): Promise<TrendingMovie[] | undefined> => {
+// En çok arananları getir
+export const getTrendingMovies = async (): Promise<
+  TrendingMovie[] | undefined
+> => {
   try {
     const result = await database.listDocuments(DATABASE_ID, COLLECTION_ID, [
-      Query.limit(20), // Daha fazla veri alalım ki filtreleme sonrası 5 kalsın
+      Query.limit(20),
       Query.orderDesc("count"),
     ]);
 
