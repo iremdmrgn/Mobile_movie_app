@@ -18,6 +18,7 @@ import {
   unsaveMovie,
   isMovieAlreadySaved,
 } from "@/services/savedMovies";
+import { checkUserLoggedIn } from "@/services/appwrite"; // ✅ Giriş kontrolü
 
 interface MovieInfoProps {
   label: string;
@@ -53,6 +54,12 @@ const Details = () => {
 
   const handleSaveToggle = async () => {
     try {
+      const user = await checkUserLoggedIn(); // ✅ Giriş kontrolü
+      if (!user) {
+        router.push("/login"); // ⛔ Giriş yapılmamışsa login ekranına yönlendir
+        return;
+      }
+
       if (!movie?.id || !movie?.title || !movie?.poster_path) return;
 
       if (isSaved) {

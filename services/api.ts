@@ -14,7 +14,8 @@ export const fetchMovies = async ({
 }): Promise<Movie[]> => {
   const endpoint = query
     ? `${TMDB_CONFIG.BASE_URL}/search/movie?query=${encodeURIComponent(query)}`
-    : `${TMDB_CONFIG.BASE_URL}/discover/movie?sort_by=popularity.desc`;
+    : `${TMDB_CONFIG.BASE_URL}/movie/now_playing`;
+
 
   const response = await fetch(endpoint, {
     method: "GET",
@@ -34,10 +35,10 @@ export const fetchMovieDetails = async (
 ): Promise<MovieDetails> => {
   try {
     const response = await fetch(
-      `${TMDB_CONFIG.BASE_URL}/movie/${movieId}?api_key=${TMDB_CONFIG.API_KEY}`,
+      `${TMDB_CONFIG.BASE_URL}/movie/${movieId}`,
       {
         method: "GET",
-        headers: TMDB_CONFIG.headers,
+        headers: TMDB_CONFIG.headers, // ✅ Bearer token zaten burada var
       }
     );
 

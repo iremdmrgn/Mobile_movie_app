@@ -21,7 +21,6 @@ export default function Register() {
 
   const handleRegister = async () => {
     try {
-      // 1. Appwrite hesabı oluştur
       const createdUser = await account.create(
         ID.unique(),
         email,
@@ -29,10 +28,8 @@ export default function Register() {
         name
       );
 
-      // 2. Oturum başlat
-      await account.createEmailSession(email, password);
+      await account.createEmailPasswordSession(email, password); // ✅
 
-      // 3. "users" koleksiyonuna kullanıcı bilgisi ekle
       await databases.createDocument(
         DATABASE_ID,
         USERS_COLLECTION_ID,
@@ -45,8 +42,7 @@ export default function Register() {
         }
       );
 
-      // 4. Tab navigasyonlu ekrana yönlendir
-      router.replace("/");
+      router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Register failed", error.message);
     }
@@ -82,13 +78,20 @@ export default function Register() {
         secureTextEntry
       />
 
-      <TouchableOpacity onPress={handleRegister} className="bg-secondary py-4 rounded">
+      <TouchableOpacity
+        onPress={handleRegister}
+        className="bg-secondary py-4 rounded"
+      >
         <Text className="text-white text-center font-semibold">Sign Up</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/login")} className="mt-4">
+      <TouchableOpacity
+        onPress={() => router.push("/(auth)/login")}
+        className="mt-4"
+      >
         <Text className="text-gray-400 text-center">
-          Already have an account? <Text className="text-white">Login</Text>
+          Already have an account?{" "}
+          <Text className="text-white">Login</Text>
         </Text>
       </TouchableOpacity>
     </SafeAreaView>

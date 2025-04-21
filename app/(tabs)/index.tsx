@@ -8,10 +8,12 @@ import {
   FlatList,
 } from "react-native";
 
-import useFetch from "@/services/useFetch";
 import { fetchMovies } from "@/services/api";
-import { getTrendingMovies, updateSearchCount } from "@/services/appwrite";
-import { account } from "@/services/appwrite"; // ✅ Appwrite account
+import {
+  getTrendingMovies,
+  updateSearchCount,
+  account,
+} from "@/services/appwrite";
 
 import { icons } from "@/constants/icons";
 import { images } from "@/constants/images";
@@ -22,40 +24,52 @@ import TrendingCard from "@/components/TrendingCard";
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Movie[] | null>(null);
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [ready, setReady] = useState(false); // ✅ Oturum hazır mı?
+  const [ready, setReady] = useState(false);
 
-  // ✅ Appwrite'a anonim login - sadece bir kere yapılır
+  const [trendingMovies, setTrendingMovies] = useState<any[]>([]);
+  const [movies, setMovies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const ensureAnonymousSession = async () => {
+    const ensureSession = async () => {
       try {
-        await account.get(); // Oturum varsa sorun yok
+        await account.get();
         setReady(true);
-      } catch (err) {
+      } catch {
         try {
-          await account.createAnonymousSession(); // Yoksa oluştur
+          await account.createAnonymousSession();
           setReady(true);
-        } catch (error) {
-          console.error("Anonim oturum açılırken hata:", error);
+        } catch (err) {
+          console.error("Anonim oturum açılamadı:", err);
         }
       }
     };
 
-    ensureAnonymousSession();
+    ensureSession();
   }, []);
 
-  const {
-    data: trendingMovies,
-    loading: trendingLoading,
-    error: trendingError,
-  } = useFetch(getTrendingMovies);
+  useEffect(() => {
+    if (!ready) return;
 
-  const {
-    data: movies,
-    loading: moviesLoading,
-    error: moviesError,
-  } = useFetch(() => fetchMovies({ query: "" }));
+    const fetchAll = async () => {
+      try {
+        const [trending, all] = await Promise.all([
+          getTrendingMovies(),
+          fetchMovies({ query: "" }),
+        ]);
+        setTrendingMovies(trending);
+        setMovies(all);
+      } catch (error) {
+        console.error("Film verisi alınamadı:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAll();
+  }, [ready]);
 
   useEffect(() => {
     const timeout = setTimeout(async () => {
@@ -68,7 +82,7 @@ const Index = () => {
             await updateSearchCount(searchQuery, result[0]);
           }
         } catch (err) {
-          console.error("Search failed:", err);
+          console.error("Arama başarısız:", err);
         } finally {
           setSearchLoading(false);
         }
@@ -80,12 +94,11 @@ const Index = () => {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // ✅ Oturum hazır değilse loader göster
-  if (!ready) {
+  if (!ready || loading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary">
         <ActivityIndicator size="large" color="#fff" />
-        <Text className="text-white mt-2">Oturum başlatılıyor...</Text>
+        <Text className="text-white mt-2">Veriler yükleniyor...</Text>
       </View>
     );
   }
@@ -132,7 +145,7 @@ const Index = () => {
               <FlatList
                 data={searchResults}
                 renderItem={({ item }) => <MovieCard {...item} />}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item) => `search-${item.id}`}
                 numColumns={3}
                 columnWrapperStyle={{
                   justifyContent: "flex-start",
@@ -146,27 +159,23 @@ const Index = () => {
           </View>
         ) : (
           <View className="flex-1 mt-5">
-            {trendingMovies && (
-              <View className="mt-10">
-                <Text className="text-lg text-white font-bold mb-3">
-                  Trending Movies
-                </Text>
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  className="mb-4 mt-3"
-                  data={trendingMovies}
-                  contentContainerStyle={{
-                    gap: 26,
-                  }}
-                  renderItem={({ item, index }) => (
-                    <TrendingCard movie={item} index={index} />
-                  )}
-                  keyExtractor={(item) => item.movie_id.toString()}
-                  ItemSeparatorComponent={() => <View className="w-4" />}
-                />
-              </View>
-            )}
+            <View className="mt-10">
+              <Text className="text-lg text-white font-bold mb-3">
+                Trending Movies
+              </Text>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mb-4 mt-3"
+                data={trendingMovies}
+                contentContainerStyle={{ gap: 26 }}
+                renderItem={({ item, index }) => (
+                  <TrendingCard movie={item} index={index} />
+                )}
+                keyExtractor={(item) => `trending-${item.movie_id}`}
+                ItemSeparatorComponent={() => <View className="w-4" />}
+              />
+            </View>
 
             <Text className="text-lg text-white font-bold mt-5 mb-3">
               Latest Movies
@@ -175,7 +184,7 @@ const Index = () => {
             <FlatList
               data={movies}
               renderItem={({ item }) => <MovieCard {...item} />}
-              keyExtractor={(item) => item.id.toString()}
+              keyExtractor={(item) => `latest-${item.id}`}
               numColumns={3}
               columnWrapperStyle={{
                 justifyContent: "flex-start",

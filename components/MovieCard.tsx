@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import {
   Text,
   Image,
@@ -14,7 +14,7 @@ import {
   unsaveMovie,
 } from "@/services/savedMovies";
 
-import CategoryModal from "@/components/CategoryModal"; // ✅ Modal import
+import { checkUserLoggedIn } from "@/services/appwrite";
 
 type MovieCardProps = {
   id: number;
@@ -35,8 +35,8 @@ const MovieCard = ({
   onUnsave,
   onSave,
 }: MovieCardProps) => {
+  const router = useRouter();
   const [isSaved, setIsSaved] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     const checkIfSaved = async () => {
@@ -48,22 +48,25 @@ const MovieCard = ({
   }, []);
 
   const handleSaveToggle = async () => {
+    const user = await checkUserLoggedIn();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
     if (isSaved) {
       await unsaveMovie(id);
       setIsSaved(false);
       onUnsave?.();
     } else {
-      setModalVisible(true); // ✅ kategori modalını aç
-    }
-  };
-
-  const handleConfirmCategory = async (category: string) => {
-    try {
-      await saveMovie({ id, title, poster_path }, category);
-      setIsSaved(true);
-      onSave?.();
-    } catch (err) {
-      console.error("Save error:", err);
+      try {
+        await saveMovie({ movieId: id, title, poster_path });
+        setIsSaved(true);
+        onSave?.();
+      } catch (err) {
+        console.error("Save error:", err);
+      }
     }
   };
 
@@ -80,13 +83,6 @@ const MovieCard = ({
           resizeMode="contain"
         />
       </TouchableOpacity>
-
-      {/* Modal */}
-      <CategoryModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onConfirm={handleConfirmCategory}
-      />
 
       {/* Film görseli */}
       <Link href={`/movies/${id}`} asChild>

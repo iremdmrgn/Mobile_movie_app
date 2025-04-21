@@ -1,8 +1,8 @@
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
+import { View, Text, ActivityIndicator, StatusBar } from "react-native";
 import { account } from "@/services/appwrite";
-import { StatusBar } from "react-native";
-import "./globals.css";
+import "./globals.css"; // tailwind & nativewind için global stil dosyası
 
 export default function RootLayout() {
   const router = useRouter();
@@ -13,15 +13,16 @@ export default function RootLayout() {
     const checkAuth = async () => {
       try {
         const user = await account.get();
+        console.log("🟢 Girişli kullanıcı:", user);
 
-        // Kullanıcı login olmuşsa ve (auth)'taysa → anasayfaya at
         if (segments[0] === "(auth)") {
-          router.replace("/");
+          router.replace("/(tabs)");
         }
-      } catch {
-        // Giriş yapılmamışsa ve (tabs)'taysa → login'e yönlendir
+      } catch (err) {
+        console.log("🔴 Girişsiz kullanıcı:", err);
+
         if (segments[0] !== "(auth)") {
-          router.replace("/login");
+          router.replace("/(auth)/login");
         }
       } finally {
         setLoading(false);
@@ -31,16 +32,28 @@ export default function RootLayout() {
     checkAuth();
   }, [segments]);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#161622",
+        }}
+      >
+        <Text style={{ color: "#fff", marginBottom: 10 }}>
+          Checking login status...
+        </Text>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
 
   return (
     <>
-      <StatusBar hidden={true} />
-
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="movies/[id]" options={{ headerShown: false }} />
-      </Stack>
+      <StatusBar hidden />
+      <Slot />
     </>
   );
 }

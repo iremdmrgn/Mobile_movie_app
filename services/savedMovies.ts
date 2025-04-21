@@ -1,3 +1,4 @@
+// savedMovies.ts
 import { Databases, ID, Permission, Role, Query } from "react-native-appwrite";
 import { client, account } from "./appwrite";
 
@@ -6,18 +7,22 @@ const database = new Databases(client);
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
 const COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_SAVED_COLLECTION_ID!;
 
-// 🎯 Film kaydetme
-export const saveMovie = async (movie: Movie, category: string) => {
+// 🎯 Film kaydetme (kategori kaldırıldı)
+export const saveMovie = async ({ movieId, title, poster_path }: {
+  movieId: number;
+  title: string;
+  poster_path: string;
+}) => {
   try {
     const user = await account.get();
 
     const payload = {
       userId: user.$id,
-      movie_id: movie.id,
-      title: movie.title,
-      poster_url: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
-      category,
+      movie_id: movieId,
+      title,
+      poster_url: `https://image.tmdb.org/t/p/w500${poster_path}`,
     };
+    
 
     await database.createDocument(
       DATABASE_ID,
@@ -54,7 +59,7 @@ export const unsaveMovie = async (movieId: number) => {
   }
 };
 
-// 🎯 Kullanıcının kaydettiği filmleri getir ve kategoriye göre grupla
+// 🎯 Kullanıcının kaydettiği filmleri getir (kategori olmadan düz liste)
 export const getSavedMoviesByUser = async () => {
   try {
     const user = await account.get();
@@ -64,14 +69,7 @@ export const getSavedMoviesByUser = async () => {
       Query.limit(100),
     ]);
 
-    // kategorilere göre grupla
-    const grouped = response.documents.reduce((acc: any, movie: any) => {
-      if (!acc[movie.category]) acc[movie.category] = [];
-      acc[movie.category].push(movie);
-      return acc;
-    }, {});
-
-    return grouped; // { "Aksiyon": [...], "Bilimkurgu": [...] }
+    return { Favorites: response.documents }; // Tek koleksiyon gibi döndür
   } catch (error) {
     console.error("getSavedMoviesByUser error:", error);
     return {};
