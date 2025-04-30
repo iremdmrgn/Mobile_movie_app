@@ -7,11 +7,17 @@ const database = new Databases(client);
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
 const COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_SAVED_COLLECTION_ID!;
 
-// 🎯 Film kaydetme (kategori kaldırıldı)
-export const saveMovie = async ({ movieId, title, poster_path }: {
+// 🎯 Film kaydetme (kategori destekli)
+export const saveMovie = async ({
+  movieId,
+  title,
+  poster_path,
+  category = "Favorites", // ✅ Varsayılan kategori
+}: {
   movieId: number;
   title: string;
   poster_path: string;
+  category?: string;
 }) => {
   try {
     const user = await account.get();
@@ -21,8 +27,8 @@ export const saveMovie = async ({ movieId, title, poster_path }: {
       movie_id: movieId,
       title,
       poster_url: `https://image.tmdb.org/t/p/w500${poster_path}`,
+      category,
     };
-    
 
     await database.createDocument(
       DATABASE_ID,
@@ -59,7 +65,7 @@ export const unsaveMovie = async (movieId: number) => {
   }
 };
 
-// 🎯 Kullanıcının kaydettiği filmleri getir (kategori olmadan düz liste)
+// 🎯 Kullanıcının kaydettiği filmleri getir (kategorilere göre gruplanmış)
 export const getSavedMoviesByUser = async () => {
   try {
     const user = await account.get();
@@ -69,15 +75,24 @@ export const getSavedMoviesByUser = async () => {
       Query.limit(100),
     ]);
 
-    return { Favorites: response.documents }; // Tek koleksiyon gibi döndür
+    // ✅ Kategorilere göre gruplama
+    const grouped = response.documents.reduce((acc, doc) => {
+      const key = doc.category || "Uncategorized";
+      if (!acc[key]) acc[key] = [];
+      acc[key] = [...acc[key], doc];
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    return grouped;
   } catch (error) {
     console.error("getSavedMoviesByUser error:", error);
     return {};
   }
 };
 
-// 🎯 Belirli bir film zaten kaydedilmiş mi? (ikon durumu için)
 export const isMovieAlreadySaved = async (movieId: number) => {
+  if (!movieId) return false; // ✅ Geçersiz ID varsa kontrolü pas geç
+
   try {
     const user = await account.get();
 
@@ -97,3 +112,4 @@ export const isMovieAlreadySaved = async (movieId: number) => {
     return false;
   }
 };
+
