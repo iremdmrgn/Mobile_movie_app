@@ -19,8 +19,7 @@ const USERS_COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_USERS_COLLECTION_ID
 const client = new Client()
   .setEndpoint("https://cloud.appwrite.io/v1")
   .setProject(PROJECT_ID)
-  .setPlatform("host.exp.Exponent")
-  // ✅ Expo Go’nun sabit platform ID’si
+  .setPlatform("host.exp.Exponent"); // ✅ Expo Go’nun sabit platform ID’si
 
 // ✅ Servisler
 export const account = new Account(client);
@@ -53,10 +52,9 @@ export const getTrendingMovies = async () => {
     const response = await databases.listDocuments(
       DATABASE_ID,
       MOVIES_COLLECTION_ID,
-      [Query.orderDesc("count"), Query.limit(50)] // Daha geniş filtre
+      [Query.orderDesc("count"), Query.limit(50)]
     );
 
-    // 🔁 Aynı movie_id olanlardan sadece birini al
     const uniqueMap = new Map();
 
     for (const doc of response.documents) {
@@ -79,19 +77,39 @@ export const getTrendingMovies = async () => {
   }
 };
 
-// 🔁 Arama sayısını güncelle
+// 🔁 Arama sayısını güncelle (döküman yoksa oluştur)
 export const updateSearchCount = async (query: string, movie: any) => {
   try {
-    const currentCount = movie.count || 0;
-
-    await databases.updateDocument(
+    const response = await databases.listDocuments(
       DATABASE_ID,
       MOVIES_COLLECTION_ID,
-      movie.$id,
-      {
-        count: currentCount + 1,
-      }
+      [Query.equal("movie_id", movie.id)]
     );
+
+    if (response.total > 0) {
+      const doc = response.documents[0];
+      await databases.updateDocument(
+        DATABASE_ID,
+        MOVIES_COLLECTION_ID,
+        doc.$id,
+        {
+          count: (doc.count || 0) + 1,
+        }
+      );
+    } else {
+      await databases.createDocument(
+        DATABASE_ID,
+        MOVIES_COLLECTION_ID,
+        ID.unique(),
+        {
+          movie_id: movie.id,
+          title: movie.title,
+          poster_url: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
+          count: 1,
+          searchTerm: query.toLowerCase(),
+        }
+      );
+    }
   } catch (error) {
     console.error(`Search count güncellenemedi: ${query}`, error);
   }

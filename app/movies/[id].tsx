@@ -18,7 +18,7 @@ import {
   unsaveMovie,
   isMovieAlreadySaved,
 } from "@/services/savedMovies";
-import { checkUserLoggedIn } from "@/services/appwrite"; // ✅ Giriş kontrolü
+import { checkUserLoggedIn } from "@/services/appwrite";
 
 interface MovieInfoProps {
   label: string;
@@ -54,9 +54,9 @@ const Details = () => {
 
   const handleSaveToggle = async () => {
     try {
-      const user = await checkUserLoggedIn(); // ✅ Giriş kontrolü
+      const user = await checkUserLoggedIn();
       if (!user) {
-        router.push("/login"); // ⛔ Giriş yapılmamışsa login ekranına yönlendir
+        router.push("/login");
         return;
       }
 
@@ -66,10 +66,11 @@ const Details = () => {
         await unsaveMovie(movie.id);
         setIsSaved(false);
       } else {
-        await saveMovie(
-          { id: movie.id, title: movie.title, poster_path: movie.poster_path },
-          "Favoriler"
-        );
+        await saveMovie({
+          movieId: movie.id,
+          title: movie.title,
+          poster_path: movie.poster_path,
+        });
         setIsSaved(true);
       }
     } catch (err) {
@@ -86,7 +87,6 @@ const Details = () => {
 
   return (
     <View className="bg-primary flex-1 relative">
-      {/* Geri butonu */}
       <TouchableOpacity
         onPress={router.back}
         className="absolute top-14 left-5 z-50 bg-dark-100/60 p-2 rounded-full"
@@ -108,7 +108,6 @@ const Details = () => {
             resizeMode="stretch"
           />
 
-          {/* Dinamik save ikonu */}
           <TouchableOpacity
             onPress={handleSaveToggle}
             className="absolute top-10 right-5 z-10 bg-white/90 p-3 rounded-full"
@@ -120,7 +119,6 @@ const Details = () => {
             />
           </TouchableOpacity>
 
-          {/* Play ikonu */}
           <TouchableOpacity className="absolute bottom-5 right-5 rounded-full size-14 bg-white flex items-center justify-center">
             <Image
               source={icons.play}
@@ -132,6 +130,7 @@ const Details = () => {
 
         <View className="flex-col items-start justify-center mt-5 px-5">
           <Text className="text-white font-bold text-xl">{movie?.title}</Text>
+
           <View className="flex-row items-center gap-x-1 mt-2">
             <Text className="text-light-200 text-sm">
               {movie?.release_date?.split("-")[0]} •
@@ -162,9 +161,7 @@ const Details = () => {
             />
             <MovieInfo
               label="Revenue"
-              value={`$${Math.round(
-                (movie?.revenue ?? 0) / 1_000_000
-              )} million`}
+              value={`$${Math.round((movie?.revenue ?? 0) / 1_000_000)} million`}
             />
           </View>
 
