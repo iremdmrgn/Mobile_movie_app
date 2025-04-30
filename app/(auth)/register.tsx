@@ -27,9 +27,8 @@ export default function Register() {
         password,
         name
       );
-
-      await account.createEmailPasswordSession(email, password); // ✅
-
+  
+      // Profil belgesi oluştur
       await databases.createDocument(
         DATABASE_ID,
         USERS_COLLECTION_ID,
@@ -41,12 +40,27 @@ export default function Register() {
           avatarUrl: "",
         }
       );
-
-      router.replace("/(tabs)");
+  
+      // Kullanıcıya seçim sun
+      Alert.alert(
+        "Registration Successful",
+        "Your account has been created. Do you want to sign in now?",
+        [
+          {
+            text: "Yes, Sign In",
+            onPress: () => router.replace("/(auth)/login"),
+          },
+          {
+            text: "No, Later",
+            style: "cancel",
+          },
+        ]
+      );
     } catch (error: any) {
-      Alert.alert("Register failed", error.message);
+      Alert.alert("Registration Failed", error.message);
     }
   };
+  
 
   return (
     <SafeAreaView className="flex-1 bg-primary px-8 justify-center">

@@ -7,6 +7,7 @@ import {
   Image,
   FlatList,
 } from "react-native";
+import { useRouter } from "expo-router"; // 🔥 yönlendirme için
 
 import { fetchMovies } from "@/services/api";
 import {
@@ -23,6 +24,8 @@ import MovieCard from "@/components/MovieCard";
 import TrendingCard from "@/components/TrendingCard";
 
 const Index = () => {
+  const router = useRouter();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -32,24 +35,27 @@ const Index = () => {
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Kullanıcı oturum kontrolü
   useEffect(() => {
     const ensureSession = async () => {
       try {
-        await account.get();
-        setReady(true);
-      } catch {
-        try {
-          await account.createAnonymousSession();
+        const user = await account.get();
+
+        if (user.email && user.email.trim() !== "") {
           setReady(true);
-        } catch (err) {
-          console.error("Anonim oturum açılamadı:", err);
+        } else {
+          throw new Error("Anonim kullanıcı");
         }
+      } catch (err) {
+        console.log("🔴 Giriş yapılmamış kullanıcı:", err);
+        router.replace("/(auth)/login"); // ❗ Otomatik yönlendir
       }
     };
 
     ensureSession();
   }, []);
 
+  // 📦 Girişli kullanıcı için veri çekimi
   useEffect(() => {
     if (!ready) return;
 
@@ -71,6 +77,7 @@ const Index = () => {
     fetchAll();
   }, [ready]);
 
+  // 🔍 Arama işlemi
   useEffect(() => {
     const timeout = setTimeout(async () => {
       if (searchQuery.trim() !== "") {
@@ -94,6 +101,7 @@ const Index = () => {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
+  // 🔃 Giriş kontrolü ve veri yüklenmemişse
   if (!ready || loading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary">

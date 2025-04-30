@@ -36,23 +36,15 @@ export const checkUserLoggedIn = async () => {
   }
 };
 
-// 👤 Anonim oturum başlat
-export const createAnonymousSession = async () => {
-  try {
-    return await account.createAnonymousSession();
-  } catch (error) {
-    console.error("Anonim oturum oluşturulamadı:", error);
-    throw error;
-  }
-};
 
-// 🔥 Trend olan filmleri getir (duplicate'ları filtreliyoruz)
+
+// 🔥 Trend olan filmleri getir (sadece 10 benzersiz)
 export const getTrendingMovies = async () => {
   try {
     const response = await databases.listDocuments(
       DATABASE_ID,
       MOVIES_COLLECTION_ID,
-      [Query.orderDesc("count"), Query.limit(50)]
+      [Query.orderDesc("count"), Query.limit(100)]
     );
 
     const uniqueMap = new Map();
@@ -68,6 +60,8 @@ export const getTrendingMovies = async () => {
           searchTerm: doc.searchTerm ?? "",
         });
       }
+
+      if (uniqueMap.size === 10) break; // ✅ Sadece 10 benzersiz film alınca dur
     }
 
     return Array.from(uniqueMap.values());

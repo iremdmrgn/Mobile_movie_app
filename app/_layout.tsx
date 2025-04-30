@@ -1,59 +1,63 @@
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, StatusBar } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import { account } from "@/services/appwrite";
-import "./globals.css"; // tailwind & nativewind için global stil dosyası
+import * as SplashScreen from "expo-splash-screen";
+import "./globals.css"; // Tailwind & NativeWind global stiller
+
+// 🚫 Splash screen hemen kapanmasın
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const [loading, setLoading] = useState(true);
+  const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
+      if (segments.length === 0) return;
+
       try {
         const user = await account.get();
         console.log("🟢 Girişli kullanıcı:", user);
 
-        if (segments[0] === "(auth)") {
+        // Eğer email boşsa => anonim kullanıcıdır
+        if (!user.email || user.email.trim() === "") {
+          throw new Error("Anonim kullanıcı");
+        }
+
+        // Giriş yaptıysa ama auth ekranındaysa → ana sayfaya yönlendir
+        const currentPath = `/${segments[0]?.join("/")}`;
+        const authRoutes = ["/(auth)/login", "/(auth)/register"];
+        if (authRoutes.includes(currentPath)) {
           router.replace("/(tabs)");
         }
       } catch (err) {
-        console.log("🔴 Girişsiz kullanıcı:", err);
+        console.log("🔴 Girişsiz ya da anonim kullanıcı:", err);
 
-        if (segments[0] !== "(auth)") {
+        // Giriş yoksa ve auth dışında bir yerdeysek → login'e at
+        const currentPath = `/${segments[0]?.join("/")}`;
+        const allowed = ["/(auth)/login", "/(auth)/register"];
+        if (!allowed.includes(currentPath)) {
           router.replace("/(auth)/login");
         }
       } finally {
-        setLoading(false);
+        setAppReady(true);
+        await SplashScreen.hideAsync();
       }
     };
 
     checkAuth();
   }, [segments]);
 
-  if (loading) {
+  if (!appReady) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#161622",
-        }}
-      >
-        <Text style={{ color: "#fff", marginBottom: 10 }}>
-          Checking login status...
-        </Text>
+      <View className="flex-1 justify-center items-center bg-primary">
+        <Text className="text-white mb-3">Uygulama hazırlanıyor...</Text>
         <ActivityIndicator size="large" color="#fff" />
       </View>
     );
   }
 
-  return (
-    <>
-      <StatusBar hidden />
-      <Slot />
-    </>
-  );
+  return <Slot />;
 }
