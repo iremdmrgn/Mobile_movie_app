@@ -25,7 +25,7 @@ export default function Register() {
       // 1. Kullanıcı oluştur
       const createdUser = await emailPasswordRegister(email, password, name);
 
-      // 2. Profil belgesi oluştur (databases API ile)
+      // 2. Profil belgesi oluştur
       const profileRes = await fetch(
         `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents`,
         {
@@ -35,10 +35,13 @@ export default function Register() {
             "X-Appwrite-Project": PROJECT_ID,
           },
           body: JSON.stringify({
-            userId: createdUser.$id,
-            username: name,
-            bio: "Hi! I'm using the app.",
-            avatarUrl: "",
+            documentId: "unique()", // ✅ zorunlu parametre eklendi
+            data: {
+              userId: createdUser.$id,
+              username: name,
+              bio: "Hi! I'm using the app.",
+              avatarUrl: "",
+            },
           }),
         }
       );

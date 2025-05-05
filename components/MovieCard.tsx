@@ -20,7 +20,7 @@ import { checkUserLoggedIn } from "@/services/appwrite";
 type MovieCardProps = {
   id: number;
   title: string;
-  poster_path: string;
+  poster_path: string | null;
   vote_average: number;
   release_date: string;
   onUnsave?: () => void;
@@ -62,7 +62,7 @@ const MovieCard = ({
       onUnsave?.();
     } else {
       try {
-        await saveMovie({ movieId: id, title, poster_path });
+        await saveMovie({ movieId: id, title, poster_path: poster_path || "" });
         setIsSaved(true);
         onSave?.();
       } catch (err) {
@@ -74,10 +74,7 @@ const MovieCard = ({
   return (
     <View style={styles.cardContainer}>
       {/* Kaydet ikonu */}
-      <TouchableOpacity
-        onPress={handleSaveToggle}
-        style={styles.saveButton}
-      >
+      <TouchableOpacity onPress={handleSaveToggle} style={styles.saveButton}>
         <Image
           source={isSaved ? icons.saveFilled : icons.save}
           style={styles.iconSmall}
@@ -107,15 +104,11 @@ const MovieCard = ({
 
       <View style={styles.ratingRow}>
         <Image source={icons.star} style={styles.star} />
-        <Text style={styles.ratingText}>
-          {Math.round(vote_average / 2)}
-        </Text>
+        <Text style={styles.ratingText}>{Math.round(vote_average / 2)}</Text>
       </View>
 
       <View style={styles.footerRow}>
-        <Text style={styles.metaText}>
-          {release_date?.split("-")[0]}
-        </Text>
+        <Text style={styles.metaText}>{release_date?.split("-")[0]}</Text>
         <Text style={styles.metaText}>Movie</Text>
       </View>
     </View>

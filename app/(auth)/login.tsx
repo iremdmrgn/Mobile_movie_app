@@ -7,7 +7,10 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { emailPasswordLogin } from "@/services/appwriteFetch"; // fetch ile login fonksiyonu
+import {
+  emailPasswordLogin,
+  logoutCurrentUser,
+} from "@/services/appwriteFetch";
 
 export default function Login() {
   const router = useRouter();
@@ -20,7 +23,13 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      await emailPasswordLogin(email, password); // REST API üzerinden login
+      // Mevcut oturumu kapat (önlem)
+      await logoutCurrentUser();
+
+      // Giriş yap
+      await emailPasswordLogin(email, password);
+
+      // Ana sayfaya yönlendir
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Login failed", error.message || "Unknown error");
@@ -62,8 +71,7 @@ export default function Login() {
         className="mt-4"
       >
         <Text className="text-gray-400 text-center">
-          Don't have an account?{" "}
-          <Text className="text-white">Register</Text>
+          Don't have an account? <Text className="text-white">Register</Text>
         </Text>
       </TouchableOpacity>
     </View>

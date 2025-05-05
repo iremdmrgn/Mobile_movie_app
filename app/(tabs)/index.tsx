@@ -7,14 +7,14 @@ import {
   Image,
   FlatList,
 } from "react-native";
-import { useRouter } from "expo-router"; // 🔥 yönlendirme için
+import { useRouter } from "expo-router";
 
-import { fetchMovies } from "@/services/api";
+import { fetchMovies } from "@/services/tmdb";
 import {
   getTrendingMovies,
   updateSearchCount,
-  account,
-} from "@/services/appwrite";
+  fetchCurrentUser,
+} from "@/services/appwriteFetch";
 
 import { icons } from "@/constants/icons";
 import { images } from "@/constants/images";
@@ -35,27 +35,24 @@ const Index = () => {
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Kullanıcı oturum kontrolü
   useEffect(() => {
     const ensureSession = async () => {
       try {
-        const user = await account.get();
-
-        if (user.email && user.email.trim() !== "") {
+        const user = await fetchCurrentUser();
+        if (user && user.email && user.email.trim() !== "") {
           setReady(true);
         } else {
           throw new Error("Anonim kullanıcı");
         }
       } catch (err) {
-        console.log("🔴 Giriş yapılmamış kullanıcı:", err);
-        router.replace("/(auth)/login"); // ❗ Otomatik yönlendir
+        console.log("\uD83D\uDD34 Giri\u015F yap\u0131lmam\u0131\u015F kullan\u0131c\u0131:", err);
+        router.replace("/(auth)/login");
       }
     };
 
     ensureSession();
   }, []);
 
-  // 📦 Girişli kullanıcı için veri çekimi
   useEffect(() => {
     if (!ready) return;
 
@@ -68,7 +65,7 @@ const Index = () => {
         setTrendingMovies(trending);
         setMovies(all);
       } catch (error) {
-        console.error("Film verisi alınamadı:", error);
+        console.error("Film verisi al\u0131namad\u0131:", error);
       } finally {
         setLoading(false);
       }
@@ -77,7 +74,6 @@ const Index = () => {
     fetchAll();
   }, [ready]);
 
-  // 🔍 Arama işlemi
   useEffect(() => {
     const timeout = setTimeout(async () => {
       if (searchQuery.trim() !== "") {
@@ -89,7 +85,7 @@ const Index = () => {
             await updateSearchCount(searchQuery, result[0]);
           }
         } catch (err) {
-          console.error("Arama başarısız:", err);
+          console.error("Arama ba\u015Far\u0131s\u0131z:", err);
         } finally {
           setSearchLoading(false);
         }
@@ -101,24 +97,22 @@ const Index = () => {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // 🔃 Giriş kontrolü ve veri yüklenmemişse
   if (!ready || loading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary">
         <ActivityIndicator size="large" color="#fff" />
-        <Text className="text-white mt-2">Veriler yükleniyor...</Text>
+        <Text className="text-white mt-2">Veriler y\u00FCkleniyor...</Text>
       </View>
     );
   }
 
   return (
     <View className="flex-1 bg-primary">
-  <Image
-  source={images.bg}
-  style={{ position: "absolute", width: "100%", zIndex: 0 }}
-  resizeMode="cover"
-/>
-
+      <Image
+        source={images.bg}
+        style={{ position: "absolute", width: "100%", zIndex: 0 }}
+        resizeMode="cover"
+      />
 
       <ScrollView
         className="flex-1 px-5"
@@ -144,8 +138,7 @@ const Index = () => {
         {searchQuery.trim() && searchResults !== null ? (
           <View className="mt-8">
             <Text className="text-lg text-white font-bold mb-3">
-              Search Results for{" "}
-              <Text className="text-accent">{searchQuery}</Text>
+              Search Results for <Text className="text-accent">{searchQuery}</Text>
             </Text>
 
             {searchResults.length === 0 ? (
@@ -154,7 +147,7 @@ const Index = () => {
               <FlatList
                 data={searchResults}
                 renderItem={({ item }) => <MovieCard {...item} />}
-                keyExtractor={(item) => `search-${item.id}`}
+                keyExtractor={(item) => `search-${item.movie_id}`}
                 numColumns={3}
                 columnWrapperStyle={{
                   justifyContent: "flex-start",
@@ -193,7 +186,7 @@ const Index = () => {
             <FlatList
               data={movies}
               renderItem={({ item }) => <MovieCard {...item} />}
-              keyExtractor={(item) => `latest-${item.id}`}
+              keyExtractor={(item) => `latest-${item.movie_id}`}
               numColumns={3}
               columnWrapperStyle={{
                 justifyContent: "flex-start",
