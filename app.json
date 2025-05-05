@@ -2,12 +2,10 @@
   "expo": {
     "name": "MovieFlix",
     "slug": "mobile_movie_app",
-    "scheme": "movieflix",                         
-    "entryPoint": "./node_modules/expo-router/entry", 
+    "scheme": "movieflix",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,                         
     "splash": {
       "image": "./assets/images/logo.png",
       "resizeMode": "contain",
@@ -20,7 +18,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.mobile_movie_app"
     },
     "web": {
       "favicon": "./assets/images/logo.png",

@@ -4,6 +4,7 @@ import {
   Image,
   TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
 import { useState, useEffect } from "react";
 
@@ -71,15 +72,15 @@ const MovieCard = ({
   };
 
   return (
-    <View className="w-[30%] relative">
+    <View style={styles.cardContainer}>
       {/* Kaydet ikonu */}
       <TouchableOpacity
         onPress={handleSaveToggle}
-        className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-2"
+        style={styles.saveButton}
       >
         <Image
           source={isSaved ? icons.saveFilled : icons.save}
-          className="w-5 h-5"
+          style={styles.iconSmall}
           resizeMode="contain"
         />
       </TouchableOpacity>
@@ -93,34 +94,90 @@ const MovieCard = ({
                 ? `https://image.tmdb.org/t/p/w500${poster_path}`
                 : "https://placehold.co/600x400/1a1a1a/FFFFFF.png",
             }}
-            className="w-full h-52 rounded-lg"
+            style={styles.poster}
             resizeMode="cover"
           />
         </TouchableOpacity>
       </Link>
 
       {/* Film bilgisi */}
-      <Text className="text-sm font-bold text-white mt-2" numberOfLines={1}>
+      <Text style={styles.title} numberOfLines={1}>
         {title}
       </Text>
 
-      <View className="flex-row items-center justify-start gap-x-1">
-        <Image source={icons.star} className="size-4" />
-        <Text className="text-xs text-white font-bold uppercase">
+      <View style={styles.ratingRow}>
+        <Image source={icons.star} style={styles.star} />
+        <Text style={styles.ratingText}>
           {Math.round(vote_average / 2)}
         </Text>
       </View>
 
-      <View className="flex-row items-center justify-between">
-        <Text className="text-xs text-light-300 font-medium mt-1">
+      <View style={styles.footerRow}>
+        <Text style={styles.metaText}>
           {release_date?.split("-")[0]}
         </Text>
-        <Text className="text-xs font-medium text-light-300 uppercase">
-          Movie
-        </Text>
+        <Text style={styles.metaText}>Movie</Text>
       </View>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  cardContainer: {
+    width: "30%",
+    position: "relative",
+  },
+  saveButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderRadius: 999,
+    padding: 8,
+  },
+  iconSmall: {
+    width: 20,
+    height: 20,
+  },
+  poster: {
+    width: "100%",
+    height: 208,
+    borderRadius: 8,
+  },
+  title: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#fff",
+    marginTop: 8,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
+  star: {
+    width: 16,
+    height: 16,
+  },
+  ratingText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#fff",
+    textTransform: "uppercase",
+  },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  metaText: {
+    fontSize: 10,
+    color: "#9CA4AB",
+    fontWeight: "500",
+    textTransform: "uppercase",
+  },
+});
 
 export default MovieCard;

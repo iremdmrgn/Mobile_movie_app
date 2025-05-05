@@ -113,11 +113,12 @@ const Index = () => {
 
   return (
     <View className="flex-1 bg-primary">
-      <Image
-        source={images.bg}
-        className="absolute w-full z-0"
-        resizeMode="cover"
-      />
+  <Image
+  source={images.bg}
+  style={{ position: "absolute", width: "100%", zIndex: 0 }}
+  resizeMode="cover"
+/>
+
 
       <ScrollView
         className="flex-1 px-5"
