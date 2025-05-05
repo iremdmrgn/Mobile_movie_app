@@ -7,11 +7,12 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { account, databases, ID } from "@/services/appwrite";
 import { useRouter } from "expo-router";
+import { emailPasswordRegister } from "@/services/appwriteFetch";
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
 const USERS_COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_USERS_COLLECTION_ID!;
+const PROJECT_ID = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID!;
 
 export default function Register() {
   const router = useRouter();
@@ -21,27 +22,32 @@ export default function Register() {
 
   const handleRegister = async () => {
     try {
-      const createdUser = await account.create(
-        ID.unique(),
-        email,
-        password,
-        name
-      );
-  
-      // Profil belgesi oluştur
-      await databases.createDocument(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        ID.unique(),
+      // 1. Kullanıcı oluştur
+      const createdUser = await emailPasswordRegister(email, password, name);
+
+      // 2. Profil belgesi oluştur (databases API ile)
+      const profileRes = await fetch(
+        `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents`,
         {
-          userId: createdUser.$id,
-          username: name,
-          bio: "Hi! I'm using the app.",
-          avatarUrl: "",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Appwrite-Project": PROJECT_ID,
+          },
+          body: JSON.stringify({
+            userId: createdUser.$id,
+            username: name,
+            bio: "Hi! I'm using the app.",
+            avatarUrl: "",
+          }),
         }
       );
-  
-      // Kullanıcıya seçim sun
+
+      if (!profileRes.ok) {
+        const err = await profileRes.json();
+        throw new Error(err.message || "Profile creation failed.");
+      }
+
       Alert.alert(
         "Registration Successful",
         "Your account has been created. Do you want to sign in now?",
@@ -57,10 +63,9 @@ export default function Register() {
         ]
       );
     } catch (error: any) {
-      Alert.alert("Registration Failed", error.message);
+      Alert.alert("Registration Failed", error.message || "Unknown error");
     }
   };
-  
 
   return (
     <SafeAreaView className="flex-1 bg-primary px-8 justify-center">
@@ -81,6 +86,7 @@ export default function Register() {
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
+        autoCapitalize="none"
       />
 
       <TextInput
@@ -104,8 +110,7 @@ export default function Register() {
         className="mt-4"
       >
         <Text className="text-gray-400 text-center">
-          Already have an account?{" "}
-          <Text className="text-white">Login</Text>
+          Already have an account? <Text className="text-white">Login</Text>
         </Text>
       </TouchableOpacity>
     </SafeAreaView>

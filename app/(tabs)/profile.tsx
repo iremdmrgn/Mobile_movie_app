@@ -10,14 +10,22 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { icons } from "@/constants/icons";
-import avatars from "@/constants/avatars";
-import { account, databases, ID, Permission, Role } from "@/services/appwrite";
-import { Query } from "react-native-appwrite";
 import { useRouter } from "expo-router";
 
-const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
-const USERS_COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_USERS_COLLECTION_ID!;
+import { icons } from "@/constants/icons";
+import avatars from "@/constants/avatars";
+
+import {
+  fetchCurrentUser,
+  updateUserEmail,
+  updateUserPassword,
+  logoutCurrentUser,
+} from "@/services/appwriteFetch";
+import {
+  DATABASE_ID,
+  USERS_COLLECTION_ID,
+  PROJECT_ID,
+} from "@/services/appwrite";
 
 const Profile = () => {
   const router = useRouter();
@@ -38,39 +46,47 @@ const Profile = () => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const currentUser = await account.get();
+        const currentUser = await fetchCurrentUser();
         setUser(currentUser);
 
-        const response = await databases.listDocuments(
-          DATABASE_ID,
-          USERS_COLLECTION_ID,
-          [Query.equal("userId", currentUser.$id)]
+        const response = await fetch(
+          `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents?queries[]=equal("userId","${currentUser.$id}")`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "X-Appwrite-Project": PROJECT_ID,
+            },
+          }
         );
 
-        if (response.documents.length === 0) {
-          const newProfile = await databases.createDocument(
-            DATABASE_ID,
-            USERS_COLLECTION_ID,
-            ID.unique(),
+        const data = await response.json();
+
+        if (data.documents.length === 0) {
+          const profileRes = await fetch(
+            `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents`,
             {
-              userId: currentUser.$id,
-              username: currentUser.name || "",
-              bio: "",
-              avatarIndex: 0,
-            },
-            [
-              Permission.read(Role.user(currentUser.$id)),
-              Permission.write(Role.user(currentUser.$id)),
-            ]
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Appwrite-Project": PROJECT_ID,
+              },
+              body: JSON.stringify({
+                userId: currentUser.$id,
+                username: currentUser.name || "",
+                bio: "",
+                avatarIndex: 0,
+              }),
+            }
           );
 
-          setProfile(newProfile);
-          setDocumentId(newProfile.$id);
-          setUsername(newProfile.username);
-          setBio(newProfile.bio);
-          setSelectedAvatarIndex(newProfile.avatarIndex);
+          const newDoc = await profileRes.json();
+          setProfile(newDoc);
+          setDocumentId(newDoc.$id);
+          setUsername(newDoc.username);
+          setBio(newDoc.bio);
+          setSelectedAvatarIndex(newDoc.avatarIndex);
         } else {
-          const doc = response.documents[0];
+          const doc = data.documents[0];
           setProfile(doc);
           setDocumentId(doc.$id);
           setUsername(doc.username || "");
@@ -91,23 +107,24 @@ const Profile = () => {
     if (!documentId || selectedAvatarIndex === null) return;
 
     try {
-      await databases.updateDocument(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        documentId,
-        { username, bio, avatarIndex: selectedAvatarIndex }
+      await fetch(
+        `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents/${documentId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Appwrite-Project": PROJECT_ID,
+          },
+          body: JSON.stringify({ username, bio, avatarIndex: selectedAvatarIndex }),
+        }
       );
 
       if (currentPassword) {
-        if (newPassword) {
-          await account.updatePassword(newPassword, currentPassword);
-        }
-        if (newEmail) {
-          await account.updateEmail(newEmail, currentPassword);
-        }
+        if (newPassword) await updateUserPassword(newPassword, currentPassword);
+        if (newEmail) await updateUserEmail(newEmail, currentPassword);
       }
 
-      const updatedUser = await account.get();
+      const updatedUser = await fetchCurrentUser();
       setUser(updatedUser);
 
       setIsEditing(false);
@@ -123,8 +140,8 @@ const Profile = () => {
 
   const handleLogout = async () => {
     try {
-      await account.deleteSession("current");
-      router.push("/login");
+      await logoutCurrentUser();
+      router.replace("/(auth)/login");
     } catch (err: any) {
       Alert.alert("Logout failed", err.message);
     }
@@ -222,19 +239,12 @@ const Profile = () => {
               secureTextEntry
             />
 
-            <TouchableOpacity
-              onPress={handleSave}
-              className="bg-secondary py-3 rounded-xl mb-3"
-            >
-              <Text className="text-white text-center font-semibold text-base">
-                Save Changes
-              </Text>
+            <TouchableOpacity onPress={handleSave} className="bg-secondary py-3 rounded-xl mb-3">
+              <Text className="text-white text-center font-semibold text-base">Save Changes</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setIsEditing(false)}>
-              <Text className="text-gray-400 text-center text-sm underline">
-                Cancel
-              </Text>
+              <Text className="text-gray-400 text-center text-sm underline">Cancel</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -243,9 +253,7 @@ const Profile = () => {
               {profile?.username || "Unnamed"}
             </Text>
             <Text className="text-gray-400 text-sm">{user?.email}</Text>
-            <Text className="text-gray-300 mt-3 leading-5">
-              {profile?.bio || "No bio available."}
-            </Text>
+            <Text className="text-gray-300 mt-3 leading-5">{profile?.bio || "No bio available."}</Text>
           </View>
         )}
       </ScrollView>

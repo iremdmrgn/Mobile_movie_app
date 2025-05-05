@@ -1,18 +1,17 @@
-// savedMovies.ts
-import { Databases, ID, Permission, Role, Query } from "react-native-appwrite";
-import { client, account } from "./appwrite";
+// services/savedMovies.ts
+import { fetchCurrentUser } from "./appwriteFetch";
 
-const database = new Databases(client);
-
+const PROJECT_ID = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID!;
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
 const COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_SAVED_COLLECTION_ID!;
+const BASE_URL = "https://cloud.appwrite.io/v1";
 
-// 🎯 Film kaydetme (kategori destekli)
+// 🎯 Film kaydet (kategori dahil)
 export const saveMovie = async ({
   movieId,
   title,
   poster_path,
-  category = "Favorites", // ✅ Varsayılan kategori
+  category = "Favorites",
 }: {
   movieId: number;
   title: string;
@@ -20,96 +19,101 @@ export const saveMovie = async ({
   category?: string;
 }) => {
   try {
-    const user = await account.get();
+    const user = await fetchCurrentUser();
+    const response = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Appwrite-Project": PROJECT_ID,
+      },
+      body: JSON.stringify({
+        userId: user.$id,
+        movie_id: movieId,
+        title,
+        poster_url: `https://image.tmdb.org/t/p/w500${poster_path}`,
+        category,
+      }),
+    });
 
-    const payload = {
-      userId: user.$id,
-      movie_id: movieId,
-      title,
-      poster_url: `https://image.tmdb.org/t/p/w500${poster_path}`,
-      category,
-    };
-
-    await database.createDocument(
-      DATABASE_ID,
-      COLLECTION_ID,
-      ID.unique(),
-      payload,
-      [
-        Permission.read(Role.user(user.$id)),
-        Permission.write(Role.user(user.$id)),
-      ]
-    );
-  } catch (error) {
-    console.error("saveMovie error:", error);
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message);
+    }
+  } catch (err) {
+    console.error("saveMovie error:", err);
   }
 };
 
-// 🎯 Film kaydını silme (toggle için)
+// 🎯 Kaydı sil
 export const unsaveMovie = async (movieId: number) => {
   try {
-    const user = await account.get();
+    const user = await fetchCurrentUser();
+    const query = `queries[]=equal("userId","${user.$id}")&queries[]=equal("movie_id",${movieId})&queries[]=limit(1)`;
+    const res = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${query}`, {
+      headers: {
+        "X-Appwrite-Project": PROJECT_ID,
+      },
+    });
 
-    const response = await database.listDocuments(DATABASE_ID, COLLECTION_ID, [
-      Query.equal("userId", user.$id),
-      Query.equal("movie_id", movieId),
-      Query.limit(1),
-    ]);
-
-    if (response.documents.length > 0) {
-      const docId = response.documents[0].$id;
-      await database.deleteDocument(DATABASE_ID, COLLECTION_ID, docId);
+    const data = await res.json();
+    if (data.documents?.length > 0) {
+      const docId = data.documents[0].$id;
+      await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents/${docId}`, {
+        method: "DELETE",
+        headers: {
+          "X-Appwrite-Project": PROJECT_ID,
+        },
+      });
     }
-  } catch (error) {
-    console.error("unsaveMovie error:", error);
+  } catch (err) {
+    console.error("unsaveMovie error:", err);
   }
 };
 
-// 🎯 Kullanıcının kaydettiği filmleri getir (kategorilere göre gruplanmış)
+// 🎯 Kaydedilen filmleri al
 export const getSavedMoviesByUser = async () => {
   try {
-    const user = await account.get();
+    const user = await fetchCurrentUser();
+    const query = `queries[]=equal("userId","${user.$id}")&queries[]=limit(100)`;
 
-    const response = await database.listDocuments(DATABASE_ID, COLLECTION_ID, [
-      Query.equal("userId", user.$id),
-      Query.limit(100),
-    ]);
+    const res = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${query}`, {
+      headers: {
+        "X-Appwrite-Project": PROJECT_ID,
+      },
+    });
 
-    // ✅ Kategorilere göre gruplama
-    const grouped = response.documents.reduce((acc, doc) => {
-      const key = doc.category || "Uncategorized";
-      if (!acc[key]) acc[key] = [];
-      acc[key] = [...acc[key], doc];
-      return acc;
-    }, {} as Record<string, any[]>);
+    const data = await res.json();
+
+    const grouped: Record<string, any[]> = {};
+    for (const doc of data.documents || []) {
+      const category = doc.category || "Uncategorized";
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push(doc);
+    }
 
     return grouped;
-  } catch (error) {
-    console.error("getSavedMoviesByUser error:", error);
+  } catch (err) {
+    console.error("getSavedMoviesByUser error:", err);
     return {};
   }
 };
 
+// 🎯 Film zaten kayıtlı mı?
 export const isMovieAlreadySaved = async (movieId: number) => {
-  if (!movieId) return false; // ✅ Geçersiz ID varsa kontrolü pas geç
-
   try {
-    const user = await account.get();
+    const user = await fetchCurrentUser();
+    const query = `queries[]=equal("userId","${user.$id}")&queries[]=equal("movie_id",${movieId})&queries[]=limit(1)`;
 
-    const response = await database.listDocuments(
-      DATABASE_ID,
-      COLLECTION_ID,
-      [
-        Query.equal("userId", user.$id),
-        Query.equal("movie_id", movieId),
-        Query.limit(1),
-      ]
-    );
+    const res = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${query}`, {
+      headers: {
+        "X-Appwrite-Project": PROJECT_ID,
+      },
+    });
 
-    return response.total > 0;
-  } catch (error) {
-    console.error("isMovieAlreadySaved error:", error);
+    const data = await res.json();
+    return data.total > 0;
+  } catch (err) {
+    console.error("isMovieAlreadySaved error:", err);
     return false;
   }
 };
-

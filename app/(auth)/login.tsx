@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { account } from "@/services/appwrite";
 import { useRouter } from "expo-router";
+import { emailPasswordLogin } from "@/services/appwriteFetch"; // fetch ile login fonksiyonu
 
 export default function Login() {
   const router = useRouter();
@@ -20,10 +20,10 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      await account.createEmailPasswordSession(email, password); // ✅ doğru metot
+      await emailPasswordLogin(email, password); // REST API üzerinden login
       router.replace("/(tabs)");
     } catch (error: any) {
-      Alert.alert("Login failed", error.message);
+      Alert.alert("Login failed", error.message || "Unknown error");
     }
   };
 
@@ -38,6 +38,7 @@ export default function Login() {
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
+        autoCapitalize="none"
       />
 
       <TextInput
