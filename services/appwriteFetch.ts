@@ -131,32 +131,36 @@ export const updateUserPassword = async (
 // ✅ Tüm filmleri getir (Appwrite içindeki)
 export const fetchMovies = async ({ query = "" }: { query?: string }) => {
   const searchParam = query.trim();
-
   const searchQuery = searchParam
-    ? `queries[]=search(\"title\",\"${searchParam}\")`
+    ? `queries[]=search(title,"${searchParam}")`
     : "";
 
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
-  const response = await fetch(
-    `${endpoint}${searchQuery ? `?${searchQuery}` : ""}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Appwrite-Project": APPWRITE_PROJECT,
-      },
-    }
-  );
+  try {
+    const response = await fetch(
+      `${endpoint}${searchQuery ? `?${searchQuery}` : ""}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Appwrite-Project": APPWRITE_PROJECT,
+        },
+      }
+    );
 
-  if (!response.ok) {
-    const error = await response.text();
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("fetchMovies hatası:", error);
+      throw new Error("Filmler alınamadı");
+    }
+
+    const data = await response.json();
+    return data.documents;
+  } catch (error) {
     console.error("fetchMovies hatası:", error);
     throw new Error("Filmler alınamadı");
   }
-
-  const data = await response.json();
-  return data.documents;
 };
 
 // ✅ Trend filmleri getir (searchCount'e göre azalan sıralı)
@@ -164,26 +168,31 @@ export const getTrendingMovies = async () => {
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
   const query = [
-    "queries[]=limit(10)",
-    "queries[]=orderDesc(\"searchCount\")",
+    "queries[]=orderDesc(searchCount)", // ✅ Düzeltildi
+    "queries[]=limit(10)"
   ].join("&");
 
-  const response = await fetch(`${endpoint}?${query}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Appwrite-Project": APPWRITE_PROJECT,
-    },
-  });
+  try {
+    const response = await fetch(`${endpoint}?${query}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Appwrite-Project": APPWRITE_PROJECT,
+      },
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("getTrendingMovies hatası:", error);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.documents;
+  } catch (error) {
     console.error("getTrendingMovies hatası:", error);
     return [];
   }
-
-  const data = await response.json();
-  return data.documents;
 };
 
 // ✅ Aranan film için arama sayısını 1 artır
@@ -195,19 +204,23 @@ export const updateSearchCount = async (query: string, movie: any) => {
 
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents/${documentId}`;
 
-  const response = await fetch(endpoint, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Appwrite-Project": APPWRITE_PROJECT,
-    },
-    body: JSON.stringify({
-      searchCount: currentCount + 1,
-    }),
-  });
+  try {
+    const response = await fetch(endpoint, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Appwrite-Project": APPWRITE_PROJECT,
+      },
+      body: JSON.stringify({
+        searchCount: currentCount + 1,
+      }),
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("Arama sayısı güncellenemedi:", error);
+    }
+  } catch (error) {
     console.error("Arama sayısı güncellenemedi:", error);
   }
 };

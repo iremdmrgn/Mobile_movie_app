@@ -35,6 +35,7 @@ const Index = () => {
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Kullanıcı oturumu kontrolü
   useEffect(() => {
     const ensureSession = async () => {
       try {
@@ -45,7 +46,7 @@ const Index = () => {
           throw new Error("Anonim kullanıcı");
         }
       } catch (err) {
-        console.log("\uD83D\uDD34 Giri\u015F yap\u0131lmam\u0131\u015F kullan\u0131c\u0131:", err);
+        console.log("🔴 Giriş yapılmamış kullanıcı:", err);
         router.replace("/(auth)/login");
       }
     };
@@ -53,6 +54,7 @@ const Index = () => {
     ensureSession();
   }, []);
 
+  // ✅ Verileri çek (trending + latest)
   useEffect(() => {
     if (!ready) return;
 
@@ -65,7 +67,7 @@ const Index = () => {
         setTrendingMovies(trending);
         setMovies(all);
       } catch (error) {
-        console.error("Film verisi al\u0131namad\u0131:", error);
+        console.error("Film verisi alınamadı:", error);
       } finally {
         setLoading(false);
       }
@@ -74,6 +76,7 @@ const Index = () => {
     fetchAll();
   }, [ready]);
 
+  // ✅ Arama işlemi
   useEffect(() => {
     const timeout = setTimeout(async () => {
       if (searchQuery.trim() !== "") {
@@ -85,7 +88,7 @@ const Index = () => {
             await updateSearchCount(searchQuery, result[0]);
           }
         } catch (err) {
-          console.error("Arama ba\u015Far\u0131s\u0131z:", err);
+          console.error("Arama başarısız:", err);
         } finally {
           setSearchLoading(false);
         }
@@ -101,7 +104,7 @@ const Index = () => {
     return (
       <View className="flex-1 justify-center items-center bg-primary">
         <ActivityIndicator size="large" color="#fff" />
-        <Text className="text-white mt-2">Veriler y\u00FCkleniyor...</Text>
+        <Text className="text-white mt-2">Veriler yükleniyor...</Text>
       </View>
     );
   }
@@ -138,7 +141,8 @@ const Index = () => {
         {searchQuery.trim() && searchResults !== null ? (
           <View className="mt-8">
             <Text className="text-lg text-white font-bold mb-3">
-              Search Results for <Text className="text-accent">{searchQuery}</Text>
+              Search Results for{" "}
+              <Text className="text-accent">{searchQuery}</Text>
             </Text>
 
             {searchResults.length === 0 ? (
@@ -147,7 +151,7 @@ const Index = () => {
               <FlatList
                 data={searchResults}
                 renderItem={({ item }) => <MovieCard {...item} />}
-                keyExtractor={(item) => `search-${item.movie_id}`}
+                keyExtractor={(item) => `search-${item.id}`} // ✅ TMDB'den gelen veri
                 numColumns={3}
                 columnWrapperStyle={{
                   justifyContent: "flex-start",
@@ -174,7 +178,7 @@ const Index = () => {
                 renderItem={({ item, index }) => (
                   <TrendingCard movie={item} index={index} />
                 )}
-                keyExtractor={(item) => `trending-${item.movie_id}`}
+                keyExtractor={(item) => `trending-${item.$id}`} // ✅ Appwrite verisi
                 ItemSeparatorComponent={() => <View className="w-4" />}
               />
             </View>
@@ -186,7 +190,7 @@ const Index = () => {
             <FlatList
               data={movies}
               renderItem={({ item }) => <MovieCard {...item} />}
-              keyExtractor={(item) => `latest-${item.movie_id}`}
+              keyExtractor={(item) => `latest-${item.id}`} // ✅ TMDB verisi
               numColumns={3}
               columnWrapperStyle={{
                 justifyContent: "flex-start",
