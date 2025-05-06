@@ -170,20 +170,24 @@ const Index = () => {
   horizontal
   showsHorizontalScrollIndicator={false}
   className="mb-4 mt-3"
-  data={trendingMovies}
+  data={trendingMovies.slice(0, 10)} // ✅ sadece 10 film
   contentContainerStyle={{ gap: 26 }}
   renderItem={({ item, index }) => (
     <TrendingCard
       movie={{
-        id: item.$id || index, // buraya küçük değişiklik eklendi ✅
+        id: item.movie_id, // ✅ TMDB ID
         title: item.title,
-        poster_path: item.poster_path,
+        poster_path: item.poster_path || item.poster_url, // hangisi varsa
       }}
       index={index}
     />
   )}
-  keyExtractor={(item, index) => item.$id ? `trending-${item.$id}` : `trending-${index}`}
+  keyExtractor={(item, index) =>
+    `trending-${item.movie_id || index}`
+  }
 />
+
+
 
 
             </View>

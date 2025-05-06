@@ -18,7 +18,7 @@ import {
   unsaveMovie,
   isMovieAlreadySaved,
 } from "@/services/savedMovies";
-import { checkUserLoggedIn } from "@/services/appwrite";
+import { checkUserLoggedIn, updateSearchCount } from "@/services/appwrite";
 
 interface MovieInfoProps {
   label: string;
@@ -44,13 +44,21 @@ const Details = () => {
   );
 
   useEffect(() => {
-    const checkSaved = async () => {
+    const checkSavedAndUpdateTrending = async () => {
       const saved = await isMovieAlreadySaved(Number(id));
       setIsSaved(saved);
+
+      if (movie?.id && movie?.title && movie?.poster_path) {
+        await updateSearchCount(movie.title, {
+          id: movie.id,
+          title: movie.title,
+          poster_path: movie.poster_path,
+        });
+      }
     };
 
-    if (id) checkSaved();
-  }, [id]);
+    if (id && movie) checkSavedAndUpdateTrending();
+  }, [id, movie]);
 
   const handleSaveToggle = async () => {
     try {

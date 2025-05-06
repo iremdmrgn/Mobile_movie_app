@@ -17,16 +17,16 @@ const TrendingCard = ({
   movie: { id, title, poster_path },
   index,
 }: TrendingCardProps) => {
-  console.log("🧩 TrendingCard props:", { id, title, poster_path }); // ✅ Debug log
-
   return (
     <Link href={`/movies/${id}`} asChild>
+
+
       <TouchableOpacity className="w-32 relative pl-5">
         <Image
           source={{
             uri: poster_path
               ? `https://image.tmdb.org/t/p/w500${poster_path}`
-              : "https://placehold.co/128x192?text=No+Image",
+              : "https://placehold.co/128x192",
           }}
           className="w-32 h-48 rounded-lg"
           resizeMode="cover"

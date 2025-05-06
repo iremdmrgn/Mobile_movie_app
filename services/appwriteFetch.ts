@@ -199,22 +199,31 @@ export const getTrendingMovies = async (): Promise<any[]> => {
 
     const data = await response.json();
 
-    const sorted = data.documents
-      .filter((doc: any) => typeof doc.count === "number")
-      .sort((a: any, b: any) => b.count - a.count)
-      .slice(0, 10);
+    // Duplicate'leri kaldır (en son eklenen versiyonu kalsın)
+    const seen = new Set();
+    const uniqueDocs = data.documents
+      .sort((a: any, b: any) => new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime())
+      .filter((doc: any) => {
+        const id = doc.movie_id;
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+
+    const limited = uniqueDocs.slice(0, 10); // sadece ilk 10 farklı film
 
     const movieResponses = await Promise.all(
-      sorted.map((doc: any) => fetchMovieDetails(doc.movie_id))
+      limited.map((doc: any) => fetchMovieDetails(doc.movie_id))
     );
 
-    // 🔒 sadece geçerli ID'lere sahip olanları döndür
     return movieResponses.filter((m) => m && typeof m.id === "number");
   } catch (error) {
     console.error("getTrendingMovies hatası:", error);
     return [];
   }
 };
+
+
 
 
 // Arama yapıldığında sayaç artır veya kayıt oluştur
