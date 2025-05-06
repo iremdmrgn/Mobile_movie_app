@@ -6,8 +6,8 @@ import {
 
 import { fetchMovieDetails } from "./tmdb";
 
-// ✅ Email/password ile kullanıcı kaydı
-export const emailPasswordRegister = async (email, password, name) => {
+// Email/password ile kullanıcı kaydı
+export const emailPasswordRegister = async (email: string, password: string, name: string) => {
   const response = await fetch("https://cloud.appwrite.io/v1/account", {
     method: "POST",
     headers: {
@@ -30,8 +30,8 @@ export const emailPasswordRegister = async (email, password, name) => {
   return await response.json();
 };
 
-// ✅ Giriş
-export const emailPasswordLogin = async (email, password) => {
+// Giriş
+export const emailPasswordLogin = async (email: string, password: string) => {
   const response = await fetch("https://cloud.appwrite.io/v1/account/sessions/email", {
     method: "POST",
     headers: {
@@ -49,8 +49,8 @@ export const emailPasswordLogin = async (email, password) => {
   return await response.json();
 };
 
-// ✅ Oturum kontrolü
-export const fetchCurrentUser = async () => {
+// Oturum kontrolü
+export const fetchCurrentUser = async (): Promise<any | null> => {
   try {
     const response = await fetch("https://cloud.appwrite.io/v1/account", {
       method: "GET",
@@ -68,8 +68,8 @@ export const fetchCurrentUser = async () => {
   }
 };
 
-// ✅ Oturum kapatma
-export const logoutCurrentUser = async () => {
+// Oturum kapatma
+export const logoutCurrentUser = async (): Promise<void> => {
   try {
     await fetch("https://cloud.appwrite.io/v1/account/sessions/current", {
       method: "DELETE",
@@ -82,8 +82,8 @@ export const logoutCurrentUser = async () => {
   }
 };
 
-// ✅ E-posta güncelle
-export const updateUserEmail = async (newEmail, password) => {
+// E-posta güncelle
+export const updateUserEmail = async (newEmail: string, password: string) => {
   const response = await fetch("https://cloud.appwrite.io/v1/account/email", {
     method: "PATCH",
     headers: {
@@ -101,8 +101,8 @@ export const updateUserEmail = async (newEmail, password) => {
   return await response.json();
 };
 
-// ✅ Şifre güncelle
-export const updateUserPassword = async (newPassword, oldPassword) => {
+// Şifre güncelle
+export const updateUserPassword = async (newPassword: string, oldPassword: string) => {
   const response = await fetch("https://cloud.appwrite.io/v1/account/password", {
     method: "PATCH",
     headers: {
@@ -120,8 +120,8 @@ export const updateUserPassword = async (newPassword, oldPassword) => {
   return await response.json();
 };
 
-// ✅ Film araması (Appwrite DB)
-export const fetchMovies = async ({ query = "" }) => {
+// Film araması
+export const fetchMovies = async ({ query = "" }: { query?: string }) => {
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
   let url = endpoint;
 
@@ -153,10 +153,12 @@ export const fetchMovies = async ({ query = "" }) => {
   }
 };
 
-// ✅ Aynı film daha önce eklenmiş mi kontrol et (integer eşleşme!)
-export const isMovieAlreadySaved = async (movieId) => {
-  const query = `equal("movie_id", ${movieId})`; // integer olarak gönder
-  const url = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents?queries[]=${encodeURIComponent(query)}`;
+// Film daha önce eklenmiş mi kontrol et (manuel eşleşme)
+export const isMovieAlreadySaved = async (movieId: number): Promise<any | null> => {
+  const numericId = Number(movieId);
+  if (isNaN(numericId)) return null;
+
+  const url = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
   try {
     const response = await fetch(url, {
@@ -168,15 +170,16 @@ export const isMovieAlreadySaved = async (movieId) => {
     });
 
     const data = await response.json();
-    return data.documents?.[0] || null;
+    const found = data.documents.find((doc: any) => Number(doc.movie_id) === numericId);
+
+    return found || null;
   } catch (error) {
-    console.error("isMovieAlreadySaved hatası:", error);
+    console.error("isMovieAlreadySaved (fallback) hatası:", error);
     return null;
   }
 };
 
-// ✅ Trend filmleri getir
-export const getTrendingMovies = async () => {
+export const getTrendingMovies = async (): Promise<any[]> => {
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
   try {
@@ -197,24 +200,30 @@ export const getTrendingMovies = async () => {
     const data = await response.json();
 
     const sorted = data.documents
-      .filter((doc) => typeof doc.count === "number")
-      .sort((a, b) => b.count - a.count)
+      .filter((doc: any) => typeof doc.count === "number")
+      .sort((a: any, b: any) => b.count - a.count)
       .slice(0, 10);
 
-    const movies = await Promise.all(
-      sorted.map((doc) => fetchMovieDetails(doc.movie_id))
+    const movieResponses = await Promise.all(
+      sorted.map((doc: any) => fetchMovieDetails(doc.movie_id))
     );
 
-    return movies;
+    // 🔒 sadece geçerli ID'lere sahip olanları döndür
+    return movieResponses.filter((m) => m && typeof m.id === "number");
   } catch (error) {
     console.error("getTrendingMovies hatası:", error);
     return [];
   }
 };
 
-export const updateSearchCount = async (query, movie) => {
+
+// Arama yapıldığında sayaç artır veya kayıt oluştur
+export const updateSearchCount = async (query: string, movie: { id: number; title: string; poster_path?: string }) => {
   try {
-    const existing = await isMovieAlreadySaved(movie.id);
+    const movieId = Number(movie.id);
+    console.log("🎬 [updateSearchCount] movie.id:", movie.id, typeof movie.id, "→", movieId);
+    if (isNaN(movieId)) return;
+    const existing = await isMovieAlreadySaved(movieId);
     const baseUrl = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
     if (existing) {
@@ -226,7 +235,7 @@ export const updateSearchCount = async (query, movie) => {
         },
         body: JSON.stringify({
           data: {
-            count: (existing.count || 0) + 1, // ✅ tekrar "data" içine alıyoruz
+            count: (existing.count || 0) + 1,
           },
         }),
       });
@@ -243,7 +252,7 @@ export const updateSearchCount = async (query, movie) => {
         body: JSON.stringify({
           documentId: "unique()",
           data: {
-            movie_id: movie.id,
+            movie_id: movieId,
             title: movie.title,
             searchTerm: query,
             poster_url: movie.poster_path
@@ -261,4 +270,3 @@ export const updateSearchCount = async (query, movie) => {
     console.error("updateSearchCount hatası:", error);
   }
 };
-

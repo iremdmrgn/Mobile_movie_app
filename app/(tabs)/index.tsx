@@ -35,7 +35,6 @@ const Index = () => {
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Oturum kontrolü
   useEffect(() => {
     const ensureSession = async () => {
       try {
@@ -46,7 +45,6 @@ const Index = () => {
           throw new Error("Anonim kullanıcı");
         }
       } catch (err) {
-        console.log("🔴 Giriş yapılmamış kullanıcı:", err);
         router.replace("/(auth)/login");
       }
     };
@@ -54,7 +52,6 @@ const Index = () => {
     ensureSession();
   }, []);
 
-  // ✅ Verileri çek
   useEffect(() => {
     if (!ready) return;
 
@@ -65,7 +62,6 @@ const Index = () => {
           fetchMovies({ query: "" }),
         ]);
 
-        console.log("🔥 Trending gelen veriler:", trending); // 🔍 LOG BURADA
         setTrendingMovies(trending);
         setMovies(all);
       } catch (error) {
@@ -78,7 +74,6 @@ const Index = () => {
     fetchAll();
   }, [ready]);
 
-  // ✅ Arama işlemi
   useEffect(() => {
     const timeout = setTimeout(async () => {
       if (searchQuery.trim() !== "") {
@@ -143,7 +138,7 @@ const Index = () => {
         {searchQuery.trim() && searchResults !== null ? (
           <View className="mt-8">
             <Text className="text-lg text-white font-bold mb-3">
-              Search Results for{" "}
+              Search Results for {" "}
               <Text className="text-accent">{searchQuery}</Text>
             </Text>
 
@@ -166,39 +161,36 @@ const Index = () => {
             )}
           </View>
         ) : (
-          <View className="flex-1 mt-5">
+          <>
             <View className="mt-10">
               <Text className="text-lg text-white font-bold mb-3">
                 Trending Movies
               </Text>
               <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="mb-4 mt-3"
-                data={trendingMovies}
-                contentContainerStyle={{ gap: 26 }}
-                renderItem={({ item, index }) => {
-                  console.log("🧪 renderItem trending:", item); // 🔍 LOG BURADA
-                  return (
-                    <TrendingCard
-                      movie={{
-                        id: item.movie_id,
-                        title: item.title,
-                        poster_path: item.poster_path,
-                      }}
-                      index={index}
-                    />
-                  );
-                }}
-                keyExtractor={(item) => `trending-${item.$id}`}
-                ItemSeparatorComponent={() => <View className="w-4" />}
-              />
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  className="mb-4 mt-3"
+  data={trendingMovies}
+  contentContainerStyle={{ gap: 26 }}
+  renderItem={({ item, index }) => (
+    <TrendingCard
+      movie={{
+        id: item.$id || index, // buraya küçük değişiklik eklendi ✅
+        title: item.title,
+        poster_path: item.poster_path,
+      }}
+      index={index}
+    />
+  )}
+  keyExtractor={(item, index) => item.$id ? `trending-${item.$id}` : `trending-${index}`}
+/>
+
+
             </View>
 
             <Text className="text-lg text-white font-bold mt-5 mb-3">
               Latest Movies
             </Text>
-
             <FlatList
               data={movies}
               renderItem={({ item }) => <MovieCard {...item} />}
@@ -213,7 +205,7 @@ const Index = () => {
               className="mt-2 pb-32"
               scrollEnabled={false}
             />
-          </View>
+          </>
         )}
       </ScrollView>
     </View>
