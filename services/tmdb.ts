@@ -19,10 +19,28 @@ export const fetchMovies = async ({ query }: { query: string }) => {
   });
 
   if (!response.ok) {
-    const error = await response.text(); // 🧪 hata içeriğini görmek için
+    const error = await response.text();
     throw new Error(`TMDB API error: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
   return data.results;
+};
+
+// ✅ Tekil film detaylarını TMDB'den al
+export const fetchMovieDetails = async (id: number) => {
+  const endpoint = `${TMDB_CONFIG.BASE_URL}/movie/${id}`;
+
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: TMDB_CONFIG.headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`TMDB detail error: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json();
+  return data;
 };

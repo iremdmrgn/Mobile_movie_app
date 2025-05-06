@@ -35,7 +35,7 @@ const Index = () => {
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Kullanıcı oturumu kontrolü
+  // ✅ Oturum kontrolü
   useEffect(() => {
     const ensureSession = async () => {
       try {
@@ -54,7 +54,7 @@ const Index = () => {
     ensureSession();
   }, []);
 
-  // ✅ Verileri çek (trending + latest)
+  // ✅ Verileri çek
   useEffect(() => {
     if (!ready) return;
 
@@ -64,6 +64,8 @@ const Index = () => {
           getTrendingMovies(),
           fetchMovies({ query: "" }),
         ]);
+
+        console.log("🔥 Trending gelen veriler:", trending); // 🔍 LOG BURADA
         setTrendingMovies(trending);
         setMovies(all);
       } catch (error) {
@@ -151,7 +153,7 @@ const Index = () => {
               <FlatList
                 data={searchResults}
                 renderItem={({ item }) => <MovieCard {...item} />}
-                keyExtractor={(item) => `search-${item.id}`} // ✅ TMDB'den gelen veri
+                keyExtractor={(item) => `search-${item.id}`}
                 numColumns={3}
                 columnWrapperStyle={{
                   justifyContent: "flex-start",
@@ -175,10 +177,20 @@ const Index = () => {
                 className="mb-4 mt-3"
                 data={trendingMovies}
                 contentContainerStyle={{ gap: 26 }}
-                renderItem={({ item, index }) => (
-                  <TrendingCard movie={item} index={index} />
-                )}
-                keyExtractor={(item) => `trending-${item.$id}`} // ✅ Appwrite verisi
+                renderItem={({ item, index }) => {
+                  console.log("🧪 renderItem trending:", item); // 🔍 LOG BURADA
+                  return (
+                    <TrendingCard
+                      movie={{
+                        id: item.movie_id,
+                        title: item.title,
+                        poster_path: item.poster_path,
+                      }}
+                      index={index}
+                    />
+                  );
+                }}
+                keyExtractor={(item) => `trending-${item.$id}`}
                 ItemSeparatorComponent={() => <View className="w-4" />}
               />
             </View>
@@ -190,7 +202,7 @@ const Index = () => {
             <FlatList
               data={movies}
               renderItem={({ item }) => <MovieCard {...item} />}
-              keyExtractor={(item) => `latest-${item.id}`} // ✅ TMDB verisi
+              keyExtractor={(item) => `latest-${item.id}`}
               numColumns={3}
               columnWrapperStyle={{
                 justifyContent: "flex-start",

@@ -4,12 +4,10 @@ import {
   MOVIES_COLLECTION_ID,
 } from "./appwrite";
 
+import { fetchMovieDetails } from "./tmdb";
+
 // ✅ Email/password ile kullanıcı kaydı
-export const emailPasswordRegister = async (
-  email: string,
-  password: string,
-  name: string
-) => {
+export const emailPasswordRegister = async (email, password, name) => {
   const response = await fetch("https://cloud.appwrite.io/v1/account", {
     method: "POST",
     headers: {
@@ -32,19 +30,16 @@ export const emailPasswordRegister = async (
   return await response.json();
 };
 
-// ✅ Giriş (oturum açma)
-export const emailPasswordLogin = async (email: string, password: string) => {
-  const response = await fetch(
-    "https://cloud.appwrite.io/v1/account/sessions/email",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Appwrite-Project": APPWRITE_PROJECT,
-      },
-      body: JSON.stringify({ email, password }),
-    }
-  );
+// ✅ Giriş
+export const emailPasswordLogin = async (email, password) => {
+  const response = await fetch("https://cloud.appwrite.io/v1/account/sessions/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Appwrite-Project": APPWRITE_PROJECT,
+    },
+    body: JSON.stringify({ email, password }),
+  });
 
   if (!response.ok) {
     const error = await response.json();
@@ -88,7 +83,7 @@ export const logoutCurrentUser = async () => {
 };
 
 // ✅ E-posta güncelle
-export const updateUserEmail = async (newEmail: string, password: string) => {
+export const updateUserEmail = async (newEmail, password) => {
   const response = await fetch("https://cloud.appwrite.io/v1/account/email", {
     method: "PATCH",
     headers: {
@@ -107,10 +102,7 @@ export const updateUserEmail = async (newEmail: string, password: string) => {
 };
 
 // ✅ Şifre güncelle
-export const updateUserPassword = async (
-  newPassword: string,
-  oldPassword: string
-) => {
+export const updateUserPassword = async (newPassword, oldPassword) => {
   const response = await fetch("https://cloud.appwrite.io/v1/account/password", {
     method: "PATCH",
     headers: {
@@ -128,26 +120,24 @@ export const updateUserPassword = async (
   return await response.json();
 };
 
-// ✅ Tüm filmleri getir (Appwrite içindeki)
-export const fetchMovies = async ({ query = "" }: { query?: string }) => {
-  const searchParam = query.trim();
-  const searchQuery = searchParam
-    ? `queries[]=search(title,"${searchParam}")`
-    : "";
-
+// ✅ Film araması (Appwrite DB)
+export const fetchMovies = async ({ query = "" }) => {
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
+  let url = endpoint;
+
+  if (query.trim() !== "") {
+    const encodedQuery = encodeURIComponent(`search("title","${query.trim()}")`);
+    url = `${endpoint}?queries[]=${encodedQuery}`;
+  }
 
   try {
-    const response = await fetch(
-      `${endpoint}${searchQuery ? `?${searchQuery}` : ""}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Appwrite-Project": APPWRITE_PROJECT,
-        },
-      }
-    );
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Appwrite-Project": APPWRITE_PROJECT,
+      },
+    });
 
     if (!response.ok) {
       const error = await response.text();
@@ -163,17 +153,34 @@ export const fetchMovies = async ({ query = "" }: { query?: string }) => {
   }
 };
 
-// ✅ Trend filmleri getir (searchCount'e göre azalan sıralı)
+// ✅ Aynı film daha önce eklenmiş mi kontrol et (integer eşleşme!)
+export const isMovieAlreadySaved = async (movieId) => {
+  const query = `equal("movie_id", ${movieId})`; // integer olarak gönder
+  const url = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents?queries[]=${encodeURIComponent(query)}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Appwrite-Project": APPWRITE_PROJECT,
+      },
+    });
+
+    const data = await response.json();
+    return data.documents?.[0] || null;
+  } catch (error) {
+    console.error("isMovieAlreadySaved hatası:", error);
+    return null;
+  }
+};
+
+// ✅ Trend filmleri getir
 export const getTrendingMovies = async () => {
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
-  const query = [
-    "queries[]=orderDesc(searchCount)", // ✅ Düzeltildi
-    "queries[]=limit(10)"
-  ].join("&");
-
   try {
-    const response = await fetch(`${endpoint}?${query}`, {
+    const response = await fetch(endpoint, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -188,39 +195,70 @@ export const getTrendingMovies = async () => {
     }
 
     const data = await response.json();
-    return data.documents;
+
+    const sorted = data.documents
+      .filter((doc) => typeof doc.count === "number")
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const movies = await Promise.all(
+      sorted.map((doc) => fetchMovieDetails(doc.movie_id))
+    );
+
+    return movies;
   } catch (error) {
     console.error("getTrendingMovies hatası:", error);
     return [];
   }
 };
 
-// ✅ Aranan film için arama sayısını 1 artır
-export const updateSearchCount = async (query: string, movie: any) => {
-  const documentId = movie?.$id;
-  const currentCount = movie?.searchCount || 0;
-
-  if (!documentId) return;
-
-  const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents/${documentId}`;
-
+export const updateSearchCount = async (query, movie) => {
   try {
-    const response = await fetch(endpoint, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Appwrite-Project": APPWRITE_PROJECT,
-      },
-      body: JSON.stringify({
-        searchCount: currentCount + 1,
-      }),
-    });
+    const existing = await isMovieAlreadySaved(movie.id);
+    const baseUrl = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("Arama sayısı güncellenemedi:", error);
+    if (existing) {
+      const res = await fetch(`${baseUrl}/${existing.$id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Appwrite-Project": APPWRITE_PROJECT,
+        },
+        body: JSON.stringify({
+          data: {
+            count: (existing.count || 0) + 1, // ✅ tekrar "data" içine alıyoruz
+          },
+        }),
+      });
+
+      const json = await res.json();
+      console.log("✅ count güncellendi:", json);
+    } else {
+      const res = await fetch(baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Appwrite-Project": APPWRITE_PROJECT,
+        },
+        body: JSON.stringify({
+          documentId: "unique()",
+          data: {
+            movie_id: movie.id,
+            title: movie.title,
+            searchTerm: query,
+            poster_url: movie.poster_path
+              ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+              : null,
+            count: 1,
+          },
+        }),
+      });
+
+      const json = await res.json();
+      console.log("✅ Yeni film eklendi:", json);
     }
   } catch (error) {
-    console.error("Arama sayısı güncellenemedi:", error);
+    console.error("updateSearchCount hatası:", error);
   }
 };
+

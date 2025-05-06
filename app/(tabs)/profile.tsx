@@ -111,7 +111,6 @@ const Profile = () => {
           setSelectedAvatarIndex(newDoc.avatarIndex);
         }
       } catch (err) {
-        // Check if error is an instance of Error and handle it
         if (err instanceof Error) {
           console.error("Fetch profile error:", err);
           Alert.alert("Error", err.message || "An error occurred");
@@ -172,10 +171,8 @@ const Profile = () => {
         avatarIndex: selectedAvatarIndex,
       }));
 
-      // Profil güncellendiğinde kullanıcıya bilgi verme
       Alert.alert("Success", "Profile updated");
-    } catch (err: any) {
-      // Handle error with instance of Error check
+    } catch (err) {
       if (err instanceof Error) {
         Alert.alert("Update failed", err.message);
       } else {
@@ -189,12 +186,11 @@ const Profile = () => {
     try {
       await logoutCurrentUser();
       router.replace("/(auth)/login");
-    } catch (err: any) {
+    } catch (err) {
       Alert.alert("Logout failed", err.message);
     }
   };
 
-  // Yükleniyor durumu
   if (loading) {
     return (
       <SafeAreaView className="bg-primary flex-1 justify-center items-center">
