@@ -7,9 +7,12 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+
 import {
   emailPasswordLogin,
   logoutCurrentUser,
+  getJWT, // ✅ JWT almak için eklendi
 } from "@/services/appwriteFetch";
 
 export default function Login() {
@@ -23,18 +26,34 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      // Mevcut oturumu kapat (önlem)
       await logoutCurrentUser();
-
-      // Giriş yap
+  
       await emailPasswordLogin(email, password);
-
-      // Ana sayfaya yönlendir
+  
+      // ⬇️ Kullanıcı bilgisi çek
+      const userRes = await fetch("https://cloud.appwrite.io/v1/account", {
+        method: "GET",
+        headers: {
+          "X-Appwrite-Project": APPWRITE_PROJECT,
+        },
+      });
+  
+      if (!userRes.ok) {
+        throw new Error("Kullanıcı bilgisi alınamadı");
+      }
+  
+      const user = await userRes.json();
+  
+      // ✅ userId’yi SecureStore’a kaydet
+      await SecureStore.setItemAsync("appwrite_user_id", user.$id);
+  
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Login failed", error.message || "Unknown error");
     }
   };
+  
+  
 
   return (
     <View className="flex-1 bg-primary justify-center px-8">

@@ -1,12 +1,14 @@
 // services/savedMovies.ts
 import { fetchCurrentUser } from "./appwriteFetch";
+import * as SecureStore from "expo-secure-store";
+
 
 const PROJECT_ID = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID!;
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
 const COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_SAVED_COLLECTION_ID!;
 const BASE_URL = "https://cloud.appwrite.io/v1";
 
-// 🎯 Film kaydet (kategori dahil)
+// 🌟 Film kaydet (kategori dahil)
 export const saveMovie = async ({
   movieId,
   title,
@@ -52,7 +54,7 @@ export const saveMovie = async ({
   }
 };
 
-// 🎯 Kaydı sil
+// 🌟 Kaydı sil
 export const unsaveMovie = async (movieId: number) => {
   try {
     const user = await fetchCurrentUser();
@@ -60,8 +62,9 @@ export const unsaveMovie = async (movieId: number) => {
 
     const queries = [
       `equal("userId", "${user.$id}")`,
-      `equal("movie_id", ${movieId})`,
+      `equal("movie_id", ${movieId})`
     ];
+    
 
     const queryParams = queries.map((q) => `queries[]=${encodeURIComponent(q)}`).join("&");
     const url = `${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${queryParams}&limit=1`;
@@ -93,46 +96,49 @@ export const unsaveMovie = async (movieId: number) => {
   }
 };
 
-export const getSavedMoviesByUser = async () => {
+export const getSavedMoviesByUser = async (movieId?: number) => {
   try {
-    const user = await fetchCurrentUser();
-    if (!user) throw new Error("Kullanıcı oturum açmamış.");
+    const userId = await SecureStore.getItemAsync("appwrite_user_id");
+    if (!userId) throw new Error("Kullanıcı oturumu yok.");
 
-    const url = `${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents/search`;
+    const rawQueries = [
+      `equal("userId", "${userId}")`,
+      movieId ? `equal("movie_id", "${movieId}")` : null
+    ].filter(Boolean);
 
-    const res = await fetch(url, {
-      method: "POST",
+    const queryString = rawQueries
+      .map(q => `queries[]=${encodeURIComponent(q)}`)
+      .join("&");
+
+    const finalUrl = `${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${queryString}&limit=1`;
+
+    console.log("📡 FINAL URL:", decodeURIComponent(finalUrl));
+
+    const res = await fetch(finalUrl, {
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
         "X-Appwrite-Project": PROJECT_ID,
       },
-      body: JSON.stringify({
-        queries: [
-          { method: "equal", attribute: "userId", values: [user.$id] }
-        ],
-      }),
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message);
+      const errorText = await res.text();
+      console.error("❌ Saved movies fetch error:", errorText);
+      throw new Error(`API error: ${errorText}`);
     }
 
     const data = await res.json();
-
-    const grouped: Record<string, any[]> = {};
-    for (const doc of data.documents || []) {
-      const category = doc.category || "Uncategorized";
-      if (!grouped[category]) grouped[category] = [];
-      grouped[category].push(doc);
-    }
-
-    return grouped;
+    return data.documents;
   } catch (err) {
     console.error("getSavedMoviesByUser error:", err);
-    return {};
+    return [];
   }
 };
+
+
+
+
 
 
 
@@ -176,8 +182,3 @@ export const isMovieAlreadySaved = async (movieId: number) => {
     return false;
   }
 };
-
-
-
-
-

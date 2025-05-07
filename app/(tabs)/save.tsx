@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 import { createCollection } from "@/services/movieCollections";
 import MovieCard from "@/components/MovieCard";
 import useFetch from "@/services/useFetch";
-import { getTrendingMovies } from "@/services/appwrite";
+import { getTrendingMovies } from "@/services/appwriteFetch";
 import { useFocusEffect } from "expo-router";
 
 const Save = () => {
@@ -35,19 +35,19 @@ const Save = () => {
     try {
       setLoading(true);
       const data = await getSavedMoviesByUser();
-      const groupedFiltered: Record<string, any[]> = {};
-      for (const category in data) {
-        const uniqueMap = new Map();
-        data[category].forEach((movie: any) => {
-          if (!uniqueMap.has(movie.movie_id)) {
-            uniqueMap.set(movie.movie_id, movie);
-          }
-        });
-        groupedFiltered[category] = Array.from(uniqueMap.values());
-      }
-      setGroupedMovies(groupedFiltered);
+
+      const grouped: Record<string, any[]> = {};
+      data.forEach((movie: any) => {
+        const category = movie.category || "Uncategorized";
+        if (!grouped[category]) grouped[category] = [];
+        if (!grouped[category].some((m) => m.movie_id === movie.movie_id)) {
+          grouped[category].push(movie);
+        }
+      });
+
+      setGroupedMovies(grouped);
     } catch (err) {
-      console.error("Saved movies fetch error:", err);
+      console.error("❌ Saved movies fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ const Save = () => {
       setNewCategory("");
       await fetchSaved();
     } catch (err) {
-      console.error("Kategori oluşturulamadı:", err);
+      console.error("❌ Kategori oluşturulamadı:", err);
     }
   };
 
@@ -77,7 +77,7 @@ const Save = () => {
       setSelectingCategory(null);
       await fetchSaved();
     } catch (err) {
-      console.error("Film eklenemedi:", err);
+      console.error("❌ Film eklenemedi:", err);
     }
   };
 
@@ -86,7 +86,7 @@ const Save = () => {
       await unsaveMovie(movieId);
       await fetchSaved();
     } catch (err) {
-      console.error("Film silinemedi:", err);
+      console.error("❌ Film silinemedi:", err);
     }
   };
 

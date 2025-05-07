@@ -1,11 +1,11 @@
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
-import { account } from "@/services/appwrite";
 import * as SplashScreen from "expo-splash-screen";
-import "./globals.css"; // Tailwind & NativeWind global stiller
+import { fetchCurrentUser } from "@/services/appwriteFetch";
+import "./globals.css";
 
-// 🚫 Splash screen hemen kapanmasın
+// Splash ekranı açık tut
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -18,16 +18,16 @@ export default function RootLayout() {
       if (segments.length === 0) return;
 
       try {
-        const user = await account.get();
+        const user = await fetchCurrentUser();
         console.log("🟢 Girişli kullanıcı:", user);
 
-        // Eğer email boşsa => anonim kullanıcıdır
-        if (!user.email || user.email.trim() === "") {
+        if (!user?.email || user.email.trim() === "") {
           throw new Error("Anonim kullanıcı");
         }
 
-        // Giriş yaptıysa ama auth ekranındaysa → ana sayfaya yönlendir
-        const currentPath = `/${segments[0]?.join("/")}`;
+        const currentPath = Array.isArray(segments[0])
+          ? `/${segments[0].join("/")}`
+          : "/";
         const authRoutes = ["/(auth)/login", "/(auth)/register"];
         if (authRoutes.includes(currentPath)) {
           router.replace("/(tabs)");
@@ -35,8 +35,9 @@ export default function RootLayout() {
       } catch (err) {
         console.log("🔴 Girişsiz ya da anonim kullanıcı:", err);
 
-        // Giriş yoksa ve auth dışında bir yerdeysek → login'e at
-        const currentPath = `/${segments[0]?.join("/")}`;
+        const currentPath = Array.isArray(segments[0])
+          ? `/${segments[0].join("/")}`
+          : "/";
         const allowed = ["/(auth)/login", "/(auth)/register"];
         if (!allowed.includes(currentPath)) {
           router.replace("/(auth)/login");

@@ -35,7 +35,7 @@ export default function Register() {
             "X-Appwrite-Project": PROJECT_ID,
           },
           body: JSON.stringify({
-            documentId: "unique()", // ✅ zorunlu parametre eklendi
+            documentId: "unique()",
             data: {
               userId: createdUser.$id,
               username: name,
