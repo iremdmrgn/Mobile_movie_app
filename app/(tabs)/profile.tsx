@@ -47,7 +47,7 @@ const Profile = () => {
     const fetchUserProfile = async () => {
       try {
         const currentUser = await fetchCurrentUser();
-        console.log("🟢 Girişli kullanıcı:", currentUser);
+        console.log("\uD83D\uDFE2 Giri\u015Fli kullan\u0131c\u0131:", currentUser);
 
         if (!currentUser) {
           Alert.alert("Error", "Please log in to access this page");
@@ -57,11 +57,9 @@ const Profile = () => {
 
         setUser(currentUser);
 
-        const params = new URLSearchParams();
-        params.append("queries[]", `equal(\"userId\",\"${currentUser.$id}\")`);
-
+        const query = encodeURIComponent(`equal("userId", "${currentUser.$id}")`);
         const response = await fetch(
-          `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents?${params.toString()}`,
+          `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents?queries[]=${query}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -71,7 +69,7 @@ const Profile = () => {
         );
 
         const data = await response.json();
-        console.log("📄 Profil sorgu sonucu:", data);
+        console.log("\uD83D\uDCC4 Profil sorgu sonucu:", data);
 
         if (data?.documents?.length > 0) {
           const doc = data.documents[0];
@@ -95,14 +93,14 @@ const Profile = () => {
                   username: currentUser.name || "",
                   bio: "",
                   avatarIndex: 0,
-                  avatarUrl: avatars[0], // ✅ avatarUrl zorunlu
+                  avatarUrl: `avatar-0`,
                 },
               }),
             }
           );
 
           const newDoc = await createRes.json();
-          console.log("🆕 Yeni profil oluşturuldu:", newDoc);
+          console.log("\uD83C\uDF1F Yeni profil olu\u015Fturuldu:", newDoc);
 
           setDocumentId(newDoc.$id);
           setUsername(newDoc.username);
@@ -110,7 +108,7 @@ const Profile = () => {
           setSelectedAvatarIndex(newDoc.avatarIndex);
         }
       } catch (err) {
-        console.error("🚨 Profil getirme hatası:", err);
+        console.error("\uD83D\uDEA8 Profil getirme hatas\u0131:", err);
         Alert.alert("Error", "Failed to fetch profile");
       } finally {
         setLoading(false);
@@ -126,7 +124,7 @@ const Profile = () => {
     console.log("selectedAvatarIndex:", selectedAvatarIndex);
 
     if (!documentId) {
-      console.log("❌ Eksik documentId");
+      console.log("\u274C Eksik documentId");
       return;
     }
 
@@ -144,14 +142,14 @@ const Profile = () => {
               username,
               bio,
               avatarIndex: selectedAvatarIndex,
-              avatarUrl: avatars[selectedAvatarIndex], // ✅ avatarUrl güncellemesi
+              avatarUrl: `avatar-${selectedAvatarIndex}`,
             },
           }),
         }
       );
 
       const updateData = await updateRes.json();
-      console.log("🛠️ PATCH sonucu:", updateData);
+      console.log("\uD83D\uDEE0\uFE0F PATCH sonucu:", updateData);
 
       if (!updateRes.ok) {
         throw new Error(updateData?.message || "Profile update failed");
@@ -162,7 +160,7 @@ const Profile = () => {
           if (newPassword) await updateUserPassword(newPassword, currentPassword);
           if (newEmail) await updateUserEmail(newEmail, currentPassword);
         } catch (error) {
-          console.error("❌ Email/Password update failed:", error);
+          console.error("\u274C Email/Password update failed:", error);
           Alert.alert("Auth Error", "Could not update email or password");
           return;
         }
@@ -175,7 +173,7 @@ const Profile = () => {
 
       Alert.alert("Success", "Profile updated");
     } catch (err) {
-      console.error("❌ handleSave error:", err);
+      console.error("\u274C handleSave error:", err);
       Alert.alert("Update failed", err.message || "An unexpected error occurred");
     }
   };
