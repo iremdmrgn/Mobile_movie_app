@@ -15,7 +15,7 @@ import {
   unsaveMovie,
 } from "@/services/savedMovies";
 
-import { checkUserLoggedIn } from "@/services/appwrite";
+import { checkUserLoggedIn } from "@/services/appwriteFetch";
 
 type MovieCardProps = {
   id: number;

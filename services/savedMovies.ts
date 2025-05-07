@@ -20,6 +20,8 @@ export const saveMovie = async ({
 }) => {
   try {
     const user = await fetchCurrentUser();
+    if (!user) throw new Error("Kullanıcı oturum açmamış.");
+
     const response = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents`, {
       method: "POST",
       headers: {
@@ -27,11 +29,14 @@ export const saveMovie = async ({
         "X-Appwrite-Project": PROJECT_ID,
       },
       body: JSON.stringify({
-        userId: user.$id,
-        movie_id: movieId,
-        title,
-        poster_url: `https://image.tmdb.org/t/p/w500${poster_path}`,
-        category,
+        documentId: "unique()",
+        data: {
+          userId: user.$id,
+          movie_id: movieId,
+          title,
+          poster_url: `https://image.tmdb.org/t/p/w500${poster_path}`,
+          category,
+        },
       }),
     });
 
@@ -39,8 +44,11 @@ export const saveMovie = async ({
       const err = await response.json();
       throw new Error(err.message);
     }
+
+    return await response.json();
   } catch (err) {
     console.error("saveMovie error:", err);
+    throw err;
   }
 };
 
@@ -48,39 +56,67 @@ export const saveMovie = async ({
 export const unsaveMovie = async (movieId: number) => {
   try {
     const user = await fetchCurrentUser();
-    const query = `queries[]=equal("userId","${user.$id}")&queries[]=equal("movie_id",${movieId})&queries[]=limit(1)`;
-    const res = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${query}`, {
+    if (!user) throw new Error("Kullanıcı oturum açmamış.");
+
+    const queries = [
+      `equal("userId", "${user.$id}")`,
+      `equal("movie_id", ${movieId})`,
+    ];
+
+    const queryParams = queries.map((q) => `queries[]=${encodeURIComponent(q)}`).join("&");
+    const url = `${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${queryParams}&limit=1`;
+
+    const res = await fetch(url, {
       headers: {
         "X-Appwrite-Project": PROJECT_ID,
       },
     });
 
     const data = await res.json();
-    if (data.documents?.length > 0) {
-      const docId = data.documents[0].$id;
-      await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents/${docId}`, {
+    const doc = data.documents?.[0];
+    if (doc) {
+      const del = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents/${doc.$id}`, {
         method: "DELETE",
         headers: {
           "X-Appwrite-Project": PROJECT_ID,
         },
       });
+
+      if (!del.ok) {
+        const err = await del.json();
+        throw new Error(err.message);
+      }
     }
   } catch (err) {
     console.error("unsaveMovie error:", err);
+    throw err;
   }
 };
 
-// 🎯 Kaydedilen filmleri al
 export const getSavedMoviesByUser = async () => {
   try {
     const user = await fetchCurrentUser();
-    const query = `queries[]=equal("userId","${user.$id}")&queries[]=limit(100)`;
+    if (!user) throw new Error("Kullanıcı oturum açmamış.");
 
-    const res = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${query}`, {
+    const url = `${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents/search`;
+
+    const res = await fetch(url, {
+      method: "POST",
       headers: {
+        "Content-Type": "application/json",
         "X-Appwrite-Project": PROJECT_ID,
       },
+      body: JSON.stringify({
+        queries: [
+          { method: "equal", attribute: "userId", values: [user.$id] }
+        ],
+      }),
     });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message);
+    }
 
     const data = await res.json();
 
@@ -98,17 +134,40 @@ export const getSavedMoviesByUser = async () => {
   }
 };
 
-// 🎯 Film zaten kayıtlı mı?
+
+
+
+
+
+
 export const isMovieAlreadySaved = async (movieId: number) => {
   try {
     const user = await fetchCurrentUser();
-    const query = `queries[]=equal("userId","${user.$id}")&queries[]=equal("movie_id",${movieId})&queries[]=limit(1)`;
+    if (!user) return false;
 
-    const res = await fetch(`${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${query}`, {
+    const query = [
+      JSON.stringify({ method: "equal", attribute: "userId", values: [user.$id] }),
+      JSON.stringify({ method: "equal", attribute: "movie_id", values: [movieId] }),
+      JSON.stringify({ method: "limit", values: [1] }),
+    ];
+
+    const params = query.map(q => `queries[]=${encodeURIComponent(q)}`).join("&");
+
+    const url = `${BASE_URL}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${params}`;
+
+    console.log("✅ Final Appwrite URL:", url);
+
+    const res = await fetch(url, {
       headers: {
         "X-Appwrite-Project": PROJECT_ID,
       },
     });
+
+    if (!res.ok) {
+      const err = await res.json();
+      console.error("❌ Appwrite error:", err);
+      throw new Error(err.message);
+    }
 
     const data = await res.json();
     return data.total > 0;
@@ -117,3 +176,8 @@ export const isMovieAlreadySaved = async (movieId: number) => {
     return false;
   }
 };
+
+
+
+
+
