@@ -17,8 +17,6 @@ import avatars from "@/constants/avatars";
 
 import {
   fetchCurrentUser,
-  updateUserEmail,
-  updateUserPassword,
   logoutCurrentUser,
 } from "@/services/appwriteFetch";
 
@@ -39,15 +37,11 @@ const Profile = () => {
   const [bio, setBio] = useState("");
   const [selectedAvatarIndex, setSelectedAvatarIndex] = useState<number>(0);
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
         const currentUser = await fetchCurrentUser();
-        console.log("\uD83D\uDFE2 Giri\u015Fli kullan\u0131c\u0131:", currentUser);
+        console.log("🟢 Girişli kullanıcı:", currentUser);
 
         if (!currentUser) {
           Alert.alert("Error", "Please log in to access this page");
@@ -57,9 +51,8 @@ const Profile = () => {
 
         setUser(currentUser);
 
-        const query = encodeURIComponent(`equal("userId", "${currentUser.$id}")`);
         const response = await fetch(
-          `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents?queries[]=${query}`,
+          `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents?queries[]=${encodeURIComponent(`equal("userId","${currentUser.$id}")`)}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -69,7 +62,7 @@ const Profile = () => {
         );
 
         const data = await response.json();
-        console.log("\uD83D\uDCC4 Profil sorgu sonucu:", data);
+        console.log("📄 Profil sorgu sonucu:", data);
 
         if (data?.documents?.length > 0) {
           const doc = data.documents[0];
@@ -100,7 +93,7 @@ const Profile = () => {
           );
 
           const newDoc = await createRes.json();
-          console.log("\uD83C\uDF1F Yeni profil olu\u015Fturuldu:", newDoc);
+          console.log("🌟 Yeni profil oluşturuldu:", newDoc);
 
           setDocumentId(newDoc.$id);
           setUsername(newDoc.username);
@@ -108,7 +101,7 @@ const Profile = () => {
           setSelectedAvatarIndex(newDoc.avatarIndex);
         }
       } catch (err) {
-        console.error("\uD83D\uDEA8 Profil getirme hatas\u0131:", err);
+        console.error("🚨 Profil getirme hatası:", err);
         Alert.alert("Error", "Failed to fetch profile");
       } finally {
         setLoading(false);
@@ -119,71 +112,77 @@ const Profile = () => {
   }, []);
 
   const handleSave = async () => {
-    console.log("handleSave triggered");
-    console.log("documentId:", documentId);
-    console.log("selectedAvatarIndex:", selectedAvatarIndex);
-
+    console.log("🧾 Gönderilen documentId:", documentId);
+  
     if (!documentId) {
-      console.log("\u274C Eksik documentId");
+      Alert.alert("Hata", "Kullanıcı profili bulunamadı");
       return;
     }
-
+  
     try {
-      const updateRes = await fetch(
-        `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${USERS_COLLECTION_ID}/documents/${documentId}`,
+      const payload = {
+        documentId,
+        username,
+        bio,
+        avatarIndex: selectedAvatarIndex,
+      };
+  
+      const response = await fetch(
+        "https://cloud.appwrite.io/v1/functions/6822f6b5003be3bf6c9a/executions",
         {
-          method: "PATCH",
+          method: "POST",
           headers: {
-            "Content-Type": "application/json",
             "X-Appwrite-Project": PROJECT_ID,
+            "Content-Type": "application/json",
+            "X-Appwrite-Data": JSON.stringify(payload), // ✨ EN ÖNEMLİ SATIR
           },
-          body: JSON.stringify({
-            data: {
-              username,
-              bio,
-              avatarIndex: selectedAvatarIndex,
-              avatarUrl: `avatar-${selectedAvatarIndex}`,
-            },
-          }),
         }
       );
-
-      const updateData = await updateRes.json();
-      console.log("\uD83D\uDEE0\uFE0F PATCH sonucu:", updateData);
-
-      if (!updateRes.ok) {
-        throw new Error(updateData?.message || "Profile update failed");
+  
+      const result = await response.json();
+      console.log("🔥 Function full result:", result);
+  
+      let parsed;
+      try {
+        parsed =
+          typeof result.response === "string"
+            ? JSON.parse(result.response)
+            : result.response;
+  
+        console.log("🌈 Function parsed result:", parsed);
+      } catch (e) {
+        console.error("❌ JSON parse hatası:", e);
       }
-
-      if (currentPassword) {
-        try {
-          if (newPassword) await updateUserPassword(newPassword, currentPassword);
-          if (newEmail) await updateUserEmail(newEmail, currentPassword);
-        } catch (error) {
-          console.error("\u274C Email/Password update failed:", error);
-          Alert.alert("Auth Error", "Could not update email or password");
-          return;
-        }
+  
+      if (parsed?.success) {
+        Alert.alert("Başarılı", "Profil güncellendi 🎉");
+        setIsEditing(false);
+      } else {
+        console.error("🔴 Güncelleme hatası (parsed):", parsed);
+        Alert.alert("Hata", parsed?.error || "Profil güncellenemedi");
       }
-
-      setIsEditing(false);
-      setCurrentPassword("");
-      setNewPassword("");
-      setNewEmail("");
-
-      Alert.alert("Success", "Profile updated");
     } catch (err) {
-      console.error("\u274C handleSave error:", err);
-      Alert.alert("Update failed", err.message || "An unexpected error occurred");
+      if (err instanceof Error) {
+        console.error("🔴 Function çağrısı hatası:", err.message);
+        Alert.alert("Hata", err.message);
+      } else {
+        console.error("🔴 Function bilinmeyen hata:", JSON.stringify(err));
+        Alert.alert("Hata", "Bilinmeyen bir hata oluştu");
+      }
     }
   };
+  
 
   const handleLogout = async () => {
     try {
       await logoutCurrentUser();
       router.replace("/(auth)/login");
     } catch (err) {
-      Alert.alert("Logout failed", err.message);
+      if (err instanceof Error) {
+        Alert.alert("Logout failed", err.message);
+      } else {
+        Alert.alert("Logout failed", "Bilinmeyen bir hata oluştu");
+      }
     }
   };
 
@@ -249,34 +248,6 @@ const Profile = () => {
               placeholder="Bio"
               placeholderTextColor="#888"
               multiline
-            />
-
-            <Text className="text-white text-base font-semibold mb-2">Update Email</Text>
-            <TextInput
-              value={newEmail}
-              onChangeText={setNewEmail}
-              className="bg-dark-200 text-white px-4 py-3 rounded-xl mb-6"
-              placeholder="New Email"
-              placeholderTextColor="#888"
-              keyboardType="email-address"
-            />
-
-            <Text className="text-white text-base font-semibold mb-2">Change Password</Text>
-            <TextInput
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              className="bg-dark-200 text-white px-4 py-3 rounded-xl mb-4"
-              placeholder="Current Password"
-              placeholderTextColor="#888"
-              secureTextEntry
-            />
-            <TextInput
-              value={newPassword}
-              onChangeText={setNewPassword}
-              className="bg-dark-200 text-white px-4 py-3 rounded-xl mb-6"
-              placeholder="New Password"
-              placeholderTextColor="#888"
-              secureTextEntry
             />
 
             <TouchableOpacity onPress={handleSave} className="bg-secondary py-3 rounded-xl mb-3">
