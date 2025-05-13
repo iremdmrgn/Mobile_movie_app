@@ -176,7 +176,6 @@ export const checkUserLoggedIn = async (jwt: string) => {
   }
 };
 
-// Trending movies
 export const getTrendingMovies = async (): Promise<any[]> => {
   const endpoint = `https://cloud.appwrite.io/v1/databases/${DATABASE_ID}/collections/${MOVIES_COLLECTION_ID}/documents`;
 
@@ -197,6 +196,7 @@ export const getTrendingMovies = async (): Promise<any[]> => {
 
     const data = await response.json();
 
+    // Duplicate'leri temizle
     const uniqueMap = new Map<number | string, any>();
     for (const doc of data.documents) {
       if (doc.movie_id && !uniqueMap.has(doc.movie_id)) {
@@ -206,10 +206,12 @@ export const getTrendingMovies = async (): Promise<any[]> => {
 
     const uniqueDocs = Array.from(uniqueMap.values());
 
+    // ✅ Arama sayısına göre sıralama
     const sorted = uniqueDocs
-      .sort((a: any, b: any) => new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime())
+      .sort((a: any, b: any) => (b.count || 0) - (a.count || 0))
       .slice(0, 10);
 
+    // TMDB detaylarını çek
     const movieResponses = await Promise.all(
       sorted.map((doc: any) => fetchMovieDetails(doc.movie_id))
     );
@@ -220,6 +222,7 @@ export const getTrendingMovies = async (): Promise<any[]> => {
     return [];
   }
 };
+
 
 // Arama yapılan filmi sayaca göre güncelle
 export const updateSearchCount = async (query: string, movie: { id: number; title: string; poster_path?: string }) => {
